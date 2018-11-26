@@ -1,0 +1,25 @@
+{
+  "name": "fulgurobot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arttaaz/FulguroBot.git"
+  },
+  "author": "Arttaaz",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Arttaaz/FulguroBot/issues"
+  },
+  "homepage": "https://github.com/Arttaaz/FulguroBot#readme",
+  "dependencies": {
+    "discord.js": "^11.3.2",
+    "js-sha256": "^0.9.0",
+    "npm": "^6.4.1",
+    "sqlite3": "^4.0.0"
+  }
+}
