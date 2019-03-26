@@ -12,7 +12,7 @@ import (
 )
 
 func main()  {
-  data, err := ioutil.ReadFile("oath")
+  data, err := ioutil.ReadFile("auth")
 	if err != nil {
 		log.Fatalf("Error reading token: %v", err)
 	}
@@ -24,7 +24,10 @@ func main()  {
   defer bot.Close()
 
   bot.AddHandler(messageHandler)
-
+  err = bot.Open()
+  if err != nil {
+    log.Fatalf("couldn't listen to Discord")
+  }
   guilds, err := bot.UserGuilds(10, "", "")
 	if err != nil {
 		log.Fatalf("couldn't get guilds from bot: %v", err)
@@ -70,7 +73,12 @@ func messageHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 
   content := m.Content
 
-  if strings.Contains(content, "!fulgurobot") {
+  if strings.EqualFold(content, "!fulgurobot") {
     s.ChannelMessageSend(m.ChannelID, "Je suis Fulgurobot !")
+  }
+  command := strings.Fields(content)[0]
+  switch command {
+  case "!blanc":
+
   }
 }
