@@ -7,10 +7,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+diesel      = { version = "*", features = ["sqlite"] }
 dirs        = "*"
+dotenv      = "*"
 serenity    = "*"
-# twitchchat  = "*"
 
-[dependencies.rusqlite]
-version = "0.18.0"
-features = ["bundled"]
+# [dependencies.rusqlite]
+# version = "0.18.0"
+# features = ["bundled"]

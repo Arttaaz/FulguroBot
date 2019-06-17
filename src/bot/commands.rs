@@ -1,5 +1,33 @@
 use serenity::utils::MessageBuilder;
-use crate::dao::{add_user, add_coq_to_user, user_exists};
+use serenity::model::channel::Message;
+use diesel::prelude::*;
+use crate::database::utils::*;
+use super::{BetState, BetStateData};
+
+
+fn bet_on_color(_color: &str, message: &Message , nb_coq: i32) {
+    let conn : SqliteConnection = connect_db();
+    let id = message.author.id.0 as i32;
+
+    if !user_exists(id, &conn) {
+        add_user(id, message.author.name.clone(), &conn);
+    }
+
+    // check if user has enough coq
+    let coq = get_coq_of_user(id, &conn);
+    if coq - nb_coq > 0 {
+        // maybe change coq number only when game ends to prevent loss in case of panic
+        add_coq_to_user(id, coq-nb_coq, &conn);
+        // add nb_coq to bets to black for game
+    } else {
+        let reply = MessageBuilder::new()
+                    .push_bold_safe(message.author.name.clone())
+                    .push(", Tu n'as pas assez de coquillages.")
+                    .build();
+        message.channel_id.say(&reply).expect("Could not send not enough coq reply");
+    }
+}
+
 
 // !fulgurobot
 command!(fulgurobot(_context, message) {
@@ -13,28 +41,33 @@ command!(fulgurobot(_context, message) {
 });
 
 // !noir bet
-command!(noir(_context, message) {
-    let nb_coq : Vec<&str> = message.content.split(' ').collect();
-    let nb_coq : i64 = nb_coq[1].parse().unwrap();
-    let id = message.author.id.0 as i64;
-
-    if !user_exists(id) {
-        add_user(id, message.author.name.clone(), 1000);
+command!(noir(context, message, args) {
+    let data = context.data.lock();
+    match *data.get::<BetStateData>().unwrap() {
+        BetState::NotBetting    => { message.channel_id.say("Il n'y a pas de partie en cours")
+                                    .expect("Could not send message"); return Ok(());},
+        BetState::WaitingResult => { message.channel_id.say("Les paris sont finis !")
+                                    .expect("Could not send message"); return Ok(()); },
+        _ => ()
     }
-    // maybe change coq number only when game ends to prevent loss at crash
-    add_coq_to_user(id, -nb_coq);
-    // add nb_coq to bets to black for game
+
+    let nb_coq = args.single::<i32>().unwrap();
+
+    bet_on_color("black", message, nb_coq);
 });
 
 // !blanc bet
-command!(blanc(_context, message) {
-    let nb_coq : Vec<&str> = message.content.split(' ').collect();
-    let nb_coq : i64 = nb_coq[1].parse().unwrap();
-    let id = message.author.id.0 as i64;
-
-    if !user_exists(id) {
-        add_user(id, message.author.name.clone(), 1000);
+command!(blanc(context, message, args) {
+    let data = context.data.lock();
+    match *data.get::<BetStateData>().unwrap() {
+        BetState::NotBetting    => { message.channel_id.say("Il n'y a pas de partie en cours")
+                                    .expect("Could not send message"); return Ok(());},
+        BetState::WaitingResult => { message.channel_id.say("Les paris sont finis !")
+                                    .expect("Could not send message"); return Ok(()); },
+        _ => ()
     }
-    add_coq_to_user(id, nb_coq);
-    // add nb_coq to bets to white for game
+
+    let nb_coq = args.single::<i32>().unwrap();
+
+    bet_on_color("white", message, nb_coq);
 });

@@ -1,9 +1,22 @@
+use serenity::prelude::TypeMapKey;
 use std::env;
 use serenity::client::{Client, EventHandler};
 use serenity::framework::StandardFramework;
 
 //commands use
 use crate::bot::commands::*;
+
+#[derive(PartialEq)]
+pub enum BetState {
+    NotBetting,
+    Betting,
+    WaitingResult,
+}
+
+pub struct BetStateData;
+impl TypeMapKey for BetStateData {
+    type Value = BetState;
+}
 
 struct Handler;
 
@@ -21,6 +34,12 @@ pub fn init_bot() -> Client {
                             //add commands here
                             .cmd("noir", noir)
                             .cmd("fulgurobot", fulgurobot));
+
+    {
+        let mut data = client.data.lock();
+        data.insert::<BetStateData>(BetState::NotBetting);
+    }
+
     client
 }
 
