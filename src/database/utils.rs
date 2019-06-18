@@ -3,7 +3,7 @@ use std::env;
 use dotenv::dotenv;
 use diesel::prelude::*;
 use super::models::*;
-use crate::schema::USERS;
+use crate::schema::*;
 
 
 pub fn connect_db() -> SqliteConnection {
@@ -42,4 +42,15 @@ pub fn get_coq_of_user(id: i32, conn: &SqliteConnection) -> i32 {
         Ok(nb_coq) => nb_coq,
         Err(_) => -1,
     }
+}
+
+pub fn add_bet(user_id: i32, black: String, white: String, bet: i32, color: String, conn: &SqliteConnection) {
+    let bet = Bets {
+        user_id,
+        black,
+        white,
+        bet,
+        color,
+    };
+    insert_into(BETS::dsl::BETS).values(bet).execute(conn).expect("failed to insert bet");
 }

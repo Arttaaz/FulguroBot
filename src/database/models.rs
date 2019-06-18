@@ -5,7 +5,6 @@ use crate::schema::*;
 #[derive(Queryable, Insertable)]
 #[table_name= "BETS"]
 pub struct Bets {
-    pub id: i32,
     pub user_id: i32,
     pub black: String,
     pub white: String,

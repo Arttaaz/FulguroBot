@@ -1,6 +1,5 @@
 table! {
-    BETS (id) {
-        id -> Integer,
+    BETS (user_id, black, white) {
         user_id -> Integer,
         black -> Text,
         white -> Text,
