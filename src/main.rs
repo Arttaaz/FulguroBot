@@ -1,13 +1,9 @@
-#[macro_use]
-extern crate diesel;
-extern crate dotenv;
 extern crate dirs;
+extern crate fulgurobot_db;
 #[macro_use]
 extern crate serenity;
 
 mod bot;
-mod database;
-mod schema;
 
 use bot::*;
 

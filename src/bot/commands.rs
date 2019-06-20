@@ -1,12 +1,11 @@
 use serenity::utils::MessageBuilder;
 use serenity::model::channel::Message;
-use diesel::prelude::*;
-use crate::database::utils::*;
+use fulgurobot_db::*;
 use super::{BetState, BetStateData};
 
 
 fn bet_on_color(color: &str, message: &Message , nb_coq: i32) {
-    let conn : SqliteConnection = connect_db();
+    let conn = connect_db();
     let id = message.author.id.0 as i32;
 
     if !user_exists(id, &conn) {
@@ -16,10 +15,7 @@ fn bet_on_color(color: &str, message: &Message , nb_coq: i32) {
     // check if user has enough coq
     let coq = get_coq_of_user(id, &conn);
     if coq - nb_coq > 0 {
-        // maybe change coq number only when game ends to prevent loss in case of panic
-        add_coq_to_user(id, coq-nb_coq, &conn);
-        // add nb_coq to bets to color for game
-        add_bet(id, "todo".to_string(), "todo".to_string(), nb_coq, color.to_string(), &conn);
+        create_bet(id, "todo".to_string(), "todo".to_string(), nb_coq, coq - nb_coq, color.to_string(), &conn);
     } else {
         let reply = MessageBuilder::new()
                     .push_bold_safe(message.author.name.clone())

@@ -33,6 +33,7 @@ pub fn init_bot() -> Client {
                             .configure(|c| c.prefix("!"))
                             //add commands here
                             .cmd("noir", noir)
+                            .cmd("blanc", blanc)
                             .cmd("fulgurobot", fulgurobot));
 
     {
