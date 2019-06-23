@@ -1,6 +1,6 @@
+#![feature(proc_macro_hygiene)]
 extern crate dirs;
 extern crate fulgurobot_db;
-#[macro_use]
 extern crate serenity;
 
 mod bot;
