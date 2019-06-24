@@ -139,6 +139,11 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
         }
     }
 
+    {
+        let conn = connect_db();
+        fulgurobot_db::create_game(black.clone(), white.clone(), &conn);
+    }
+
     let mut data = context.data.write();
     let games = data.get_mut::<GameData>().unwrap();
     let mut index = games.len();
@@ -156,10 +161,6 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
     let state = data.get_mut::<BetStateData>().unwrap();
     state.insert(index, BetState::NotBetting);
 
-    {
-        let conn = connect_db();
-        fulgurobot_db::create_game(black.clone(), white.clone(), &conn);
-    }
     let reply = MessageBuilder::new()
                 .push(format!("La partie de {} vs {} a été créée avec l'id : {}.", black, white, index))
                 .build();
@@ -201,9 +202,10 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
             if let Err(why) = message.channel_id.say(&context.http, &reply) {
                 println!("Could not send message: {:?}", why);
             }
+            return Ok(());
         }
         let reply = MessageBuilder::new()
-                    .push("Mauvais id de partie")
+                    .push("Les paris sont ouverts !")
                     .build();
         if let Err(why) = message.channel_id.say(&context.http, &reply) {
             println!("Could not send message: {:?}", why);
