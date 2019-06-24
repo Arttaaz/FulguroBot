@@ -91,14 +91,14 @@ fn bet_on_color(color: String,
 // !fulgurobot
 pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
     let mut reply = MessageBuilder::new();
-    reply.push(", Commandes pour parier :\n!noir i x -> parie x coquillages sur noir pour la partie i\n!blanc i x -> parie x coquillages sur blanc pour la partie i\n!coq -> envoie en message privé votre nombre de coquillages");
-    if message.author.has_role(&context, message.guild_id.unwrap(), 400904374219571201).unwrap() ||
-        message.author.has_role(&context, message.guild_id.unwrap(), 291868975015657472).unwrap() ||
-        message.author.has_role(&context, message.guild_id.unwrap(), 416986920829321228).unwrap() {
+    reply.push("Commandes pour parier :\n!noir i x -> parie x coquillages sur noir pour la partie i\n!blanc i x -> parie x coquillages sur blanc pour la partie i\n!coq -> envoie en message privé votre nombre de coquillages");
+    if message.author.has_role(&context, message.guild_id.unwrap(), 400_904_374_219_571_201).unwrap() ||
+        message.author.has_role(&context, message.guild_id.unwrap(), 291_868_975_015_657_472).unwrap() ||
+        message.author.has_role(&context, message.guild_id.unwrap(), 416_986_920_829_321_228).unwrap() {
             reply.push("\n!create_game noir blanc -> créé une partie pour parier et lui donne un id pour les autre commandes.
-                        \n!debut_paris game_id -> démarre les paris pour la partie identifié par game_id.
-                        \n!fin_paris game_id -> bloque les paris pour la partie identifié par game_id.
-                        \n!resultat game_id couleur -> indique la couleur gagnante de la partie identifié par game_id.");
+                        !debut_paris game_id -> démarre les paris pour la partie identifié par game_id.
+                        !fin_paris game_id -> bloque les paris pour la partie identifié par game_id.
+                        !resultat game_id couleur -> indique la couleur gagnante de la partie identifié par game_id.");
     }
 
     let reply = reply.build();
@@ -279,6 +279,13 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
     let color = args.single::<String>().unwrap_or_else (|_| {
         args_ok = false; "".into()
     });
+    if color != "noir" || color != "blanc" {
+        if let Err(why) = message.channel_id.say(&context.http, "Usage: !resultat game_id couleur (blanc ou noir)") {
+            println!("Could not send message: {:?}", why);
+        }
+        return Ok(());
+    }
+
     if !args_ok {
         if let Err(why) = message.channel_id.say(&context.http, "Usage: !resultat game_id couleur") {
             println!("Could not send message: {:?}", why);
@@ -310,12 +317,20 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
     let white = &games[game_id].as_ref().unwrap().1;
     let game = get_game(black.clone(), white.clone(), &conn).unwrap();
 
-    let users = match get_users_bet_color(black.clone(), white.clone(), color, &conn) {
+    let users = match get_users_bet_color(black.clone(), white.clone(), color.clone(), &conn) {
         Some(u) => u,
         None => Vec::new(), //maybe change later to cancel the bets if there is no winner
     };
-
-    let total = game.black_bet + game.white_bet;
+    let mut total = 0;
+    match color.as_str() {
+        "noir" => {
+            total = game.black_bet;
+        },
+        "blanc" => {
+            total = game.white_bet;
+        },
+        _ => (),
+    }
     let mut reply = MessageBuilder::new();
     for user in users {
         let bet = get_bet(user.id.clone(), black.clone(), white.clone(), &conn).unwrap();
@@ -333,10 +348,8 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
             println!("Could not send message: {:?}", why);
         }
     }
-    else {
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Could not send message: {:?}", why);
-        }
+    else if let Err(why) = message.channel_id.say(&context.http, "Il n'y a aucun gagnants !") {
+        println!("Could not send message: {:?}", why);
     }
     remove_bets_of_game(black.clone(), white.clone(), &conn);
     delete_game(black.clone(), white.clone(), &conn);

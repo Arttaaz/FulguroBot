@@ -55,9 +55,9 @@ pub fn init_bot() -> Client {
     let mut chan_id = serenity::model::id::ChannelId(0);
     {
         let http = &client.cache_and_http.http;
-        let guild = http.get_guild(205702304589021184).unwrap();
+        let guild = http.get_guild(205_702_304_589_021_184).unwrap();
         for (channel_id, chan) in &guild.channels(&http).unwrap() {
-            if chan.name == "testfulgurobot".to_string() {
+            if chan.name == "testfulgurobot" {
                 chan_id = *channel_id;
             }
         }
@@ -111,7 +111,7 @@ fn restore_context(client: &Client) {
         }
         let message = message.build();
         let http = &client.cache_and_http.http;
-        let channels = client.cache_and_http.http.get_guild(205702304589021184).unwrap().channels(http).unwrap();
+        let channels = client.cache_and_http.http.get_guild(205_702_304_589_021_184).unwrap().channels(http).unwrap();
         for (_id, chan) in channels {
             if chan.name == "testfulgurobot" {
                 let message = chan.say(http, &message);
@@ -122,6 +122,7 @@ fn restore_context(client: &Client) {
                         println!("Could not pin message: {:?}", why);
                     }
                 }
+                break;
             }
         }
 
@@ -130,6 +131,5 @@ fn restore_context(client: &Client) {
         for i in 0..size {
             b.insert(i, BetState::NotBetting);
         }
-
     }
 }
