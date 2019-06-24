@@ -106,15 +106,22 @@ fn restore_context(client: &Client) {
 
         for (i, e) in g.iter().enumerate() {
             let e = e.as_ref().unwrap();
-            message.push(format!("{} vs {} associé à l'id: {}\n", e.0, e.1, i));
+            message.push(format!("{} vs {} associé à l'id: ", e.0, e.1));
+            message.push_bold_safe(format!("{}\n", i));
         }
         let message = message.build();
-        let message = client.cache_and_http.http.send_message(433961491864223755, &message.into());
-        if let Err(why) = message {
-            println!("Could not send restore context message: {:?}", why);
-        } else if let Ok(m) = message {
-            if let Err(why) = m.channel_id.pin(&client.cache_and_http.http, &m) {
-                println!("Could not pin message: {:?}", why);
+        let http = &client.cache_and_http.http;
+        let channels = client.cache_and_http.http.get_guild(205702304589021184).unwrap().channels(http).unwrap();
+        for (_id, chan) in channels {
+            if chan.name == "testfulgurobot" {
+                let message = chan.say(http, &message);
+                if let Err(why) = message {
+                    println!("Could not send restore context message: {:?}", why);
+                } else if let Ok(m) = message {
+                    if let Err(why) = m.channel_id.pin(http, &m) {
+                        println!("Could not pin message: {:?}", why);
+                    }
+                }
             }
         }
 

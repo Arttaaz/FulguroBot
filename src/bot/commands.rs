@@ -162,7 +162,8 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
     state.insert(index, BetState::NotBetting);
 
     let reply = MessageBuilder::new()
-                .push(format!("La partie de {} vs {} a été créée avec l'id : {}.", black, white, index))
+                .push(format!("La partie de {} vs {} a été créée avec l'id : ", black, white))
+                .push_bold_safe(format!("{}.", index))
                 .build();
     let m = message.channel_id.say(&context.http, &reply);
     if let Err(why) = m {
