@@ -87,8 +87,8 @@ fn bet_on_color(color: String,
 }
 
 
-// !fulgurobot
 #[command]
+// !fulgurobot
 pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
     let mut reply = MessageBuilder::new();
     reply.push(", Commandes pour parier :\n!noir i x -> parie x coquillages sur noir pour la partie i\n!blanc i x -> parie x coquillages sur blanc pour la partie i\n!coq -> envoie en message privé votre nombre de coquillages");
@@ -346,6 +346,7 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
 }
 
 #[command]
+// !coq
 fn coq(context: &mut Context, message: &Message) -> CommandResult {
     let id = message.author.id.to_string();
 

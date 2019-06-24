@@ -4,6 +4,7 @@ use std::env;
 use serenity::client::{Client, EventHandler};
 use serenity::framework::StandardFramework;
 use serenity::framework::standard::macros::group;
+use serenity::utils::MessageBuilder;
 
 //commands use
 use crate::bot::commands::*;
@@ -95,15 +96,33 @@ fn restore_context(client: &Client) {
     if !games.is_empty() {
         let mut data = client.data.write();
         let g = data.get_mut::<GameData>().unwrap();
-        dbg!(&games.len());
+
         for game in games {
             g.push(Some((game.black, game.white)));
-
         }
+
+        let mut message = MessageBuilder::new();
+        message.push("J'ai trouvé ces parties en démarrant :\n");
+
+        for (i, e) in g.iter().enumerate() {
+            let e = e.as_ref().unwrap();
+            message.push(format!("{} vs {} associé à l'id: {}\n", e.0, e.1, i));
+        }
+        let message = message.build();
+        let message = client.cache_and_http.http.send_message(433961491864223755, &message.into());
+        if let Err(why) = message {
+            println!("Could not send restore context message: {:?}", why);
+        } else if let Ok(m) = message {
+            if let Err(why) = m.channel_id.pin(&client.cache_and_http.http, &m) {
+                println!("Could not pin message: {:?}", why);
+            }
+        }
+
         let size = g.len();
         let b = data.get_mut::<BetStateData>().unwrap();
         for i in 0..size {
             b.insert(i, BetState::NotBetting);
         }
+
     }
 }
