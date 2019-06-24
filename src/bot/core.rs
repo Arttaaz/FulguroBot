@@ -92,16 +92,18 @@ pub fn launch_bot(mut client: Client) {
 fn restore_context(client: &Client) {
     let conn = fulgurobot_db::connect_db();
     let games = fulgurobot_db::get_games(&conn);
-    let mut data = client.data.write();
-    let g = data.get_mut::<GameData>().unwrap();
-    dbg!(&games.len());
-    for game in games {
-        g.push(Some((game.black, game.white)));
+    if !games.is_empty() {
+        let mut data = client.data.write();
+        let g = data.get_mut::<GameData>().unwrap();
+        dbg!(&games.len());
+        for game in games {
+            g.push(Some((game.black, game.white)));
 
-    }
-    let size = g.len();
-    let b = data.get_mut::<BetStateData>().unwrap();
-    for i in 0..size {
-        b.insert(i, BetState::NotBetting);
+        }
+        let size = g.len();
+        let b = data.get_mut::<BetStateData>().unwrap();
+        for i in 0..size {
+            b.insert(i, BetState::NotBetting);
+        }
     }
 }
