@@ -1,3 +1,9 @@
+[workspace]
+members = [
+    "kgs_handler",
+    # et fulgurobot_db pour pas avoir a republier a chaque fois ? :p
+]
+
 [package]
 name = "fulguro_bot"
 version = "1.0.0"
@@ -10,4 +16,4 @@ edition = "2018"
 dirs        = "*"
 fulgurobot_db = "0.2.0"
 serenity    = "*"
-reqwest        = "*"
+kgs_handler = { path = "kgs_handler" }

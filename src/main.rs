@@ -2,9 +2,9 @@
 extern crate dirs;
 extern crate fulgurobot_db;
 extern crate serenity;
+extern crate kgs_handler;
 
 mod bot;
-mod kgs_handler;
 
 use bot::*;
 use kgs_handler::*;

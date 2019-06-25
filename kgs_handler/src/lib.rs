@@ -1,6 +1,9 @@
 use reqwest;
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod tests;
+
 pub struct Client {
     user: User, //This is us
 }
@@ -39,7 +42,7 @@ impl Client {
         let mut res = client.post("localhost::8080/access")
         .json(&data)
         .send().expect("Could not login");
-        
+
         println!("{}",res.text().expect("Unvalid response text"));
     }
 }
