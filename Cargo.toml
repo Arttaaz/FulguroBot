@@ -1,12 +1,19 @@
+[workspace]
+members = [
+    "kgs_handler",
+    # et fulgurobot_db pour pas avoir a republier a chaque fois ? :p
+]
+
 [package]
 name = "fulguro_bot"
 version = "1.0.0"
-authors = ["Arttaaz <arttaaz@gmail.com>"]
+authors = ["Arttaaz <arttaaz@gmail.com>", "Jiriakel <jorisvdb96@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 dirs        = "*"
-fulgurobot_db = "0.4"
-serenity    = "0.6"
+fulgurobot_db = "0.2.0"
+serenity    = "*"
+kgs_handler = { path = "kgs_handler" }
