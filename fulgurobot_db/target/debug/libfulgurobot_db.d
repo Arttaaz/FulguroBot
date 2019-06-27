@@ -1,0 +1,1 @@
+/home/arttaaz/Documents/rust/fulgurobot_db/target/debug/libfulgurobot_db.rlib: /home/arttaaz/Documents/rust/fulgurobot_db/src/lib.rs /home/arttaaz/Documents/rust/fulgurobot_db/src/models.rs /home/arttaaz/Documents/rust/fulgurobot_db/src/schema.rs

@@ -8,6 +8,7 @@ pub struct Client {
     user: User, //This is us
 }
 
+#[allow(dead_code)]
 pub struct User {
     username: String,
     password: String,
