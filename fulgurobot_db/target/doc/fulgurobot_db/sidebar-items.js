@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["add_bet",""],["add_coq_to_user",""],["add_user",""],["connect_db",""],["get_coq_of_user",""],["user_exists",""]]});
