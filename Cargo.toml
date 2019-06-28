@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "kgs_handler",
-    # et fulgurobot_db pour pas avoir a republier a chaque fois ? :p
+    "fulgurobot_db",
 ]
 
 [package]
@@ -14,6 +14,6 @@ edition = "2018"
 
 [dependencies]
 dirs        = "*"
-fulgurobot_db = "0.2.0"
+fulgurobot_db = { path="fulgurobot_db" }
 serenity    = "*"
 kgs_handler = { path = "kgs_handler" }
