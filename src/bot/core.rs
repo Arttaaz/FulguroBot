@@ -61,7 +61,7 @@ pub fn init_bot() -> Client {
     group!({
         name: "general",
         options: {},
-        commands: [noir, blanc, fulgurobot, coq],
+        commands: [noir, blanc, fulgurobot, coq, nb_boost, boost],
     });
 
     group!({

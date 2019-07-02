@@ -13,6 +13,9 @@ mod schema;
 use crate::models::*;
 use crate::schema::*;
 
+const NB_BASE_COQ : i32 = 1000;
+const NB_BASE_BOOST: i32 = 5;
+
 
 pub fn connect_db() -> SqliteConnection {
     dotenv().ok();
@@ -29,7 +32,8 @@ pub fn create_user(id: String, name: String, conn: &SqliteConnection) {
     let user = Users {
         id,
         name,
-        nb_coq: 1000,
+        nb_coq: NB_BASE_COQ,
+        nb_boost: NB_BASE_BOOST,
     };
     insert_into(users::dsl::users).values(user).execute(conn).expect("Failed to add user");
 }
@@ -69,6 +73,27 @@ pub fn get_coq_of_user(id: String, conn: &SqliteConnection) -> i32 {
         Ok(nb_coq) => nb_coq,
         Err(_) => -1,
     }
+}
+
+pub fn get_boost_user(id: String, conn: &SqliteConnection) -> i32 {
+    match users::dsl::users.select(users::dsl::nb_boost).filter(users::dsl::id.eq(id)).first::<i32>(conn) {
+        Ok(nb_boost) => nb_boost,
+        Err(_) => -1,
+    }
+}
+
+pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> Option<i32> {
+    let nb_boost = get_boost_user(id.clone(), conn);
+    if nb_boost != -1 {
+        if nb_boost + modifier >= 0 {
+            diesel::update(users::dsl::users.find(id)).set(users::dsl::nb_boost.eq(nb_boost+modifier)).execute(conn)
+                .expect("Could not update nb_boost");
+            return Some(nb_boost+modifier);
+        } else {
+            return None;
+        }
+    }
+    None
 }
 
 ///////////////////////////////////

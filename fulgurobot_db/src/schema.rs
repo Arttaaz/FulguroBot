@@ -23,6 +23,7 @@ table! {
         id -> Text,
         name -> Text,
         nb_coq -> Integer,
+        nb_boost -> Integer,
     }
 }
 
