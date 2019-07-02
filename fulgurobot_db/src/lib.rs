@@ -164,6 +164,7 @@ pub fn create_game(black: String, white: String, conn: &SqliteConnection) {
         white,
         black_bet: 0,
         white_bet: 0,
+        state: 0,
     };
 
     insert_into(game::dsl::game).values(game).execute(conn).expect("Could not create game");
@@ -196,6 +197,14 @@ pub fn update_game_bet(black: String, white: String, color: String, new_total: i
                     },
         _ => ()
     }
+}
+
+pub fn update_game_state(black: String, white: String, state: i32, conn: &SqliteConnection) {
+    diesel::update(game::dsl::game).set(game::dsl::state.eq(state))
+            .filter(game::dsl::black.eq(black))
+            .filter(game::dsl::white.eq(white))
+            .execute(conn)
+            .expect("Could not update game state");
 }
 
 pub fn delete_game(black: String, white: String, conn: &SqliteConnection) {

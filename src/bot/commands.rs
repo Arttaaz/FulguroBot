@@ -192,10 +192,13 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
     }
 
     let mut data = context.data.write();
-    if let Some(_game) = data.get::<GameData>().unwrap()[game_id].as_ref() {
+    if let Some(game) = data.get::<GameData>().unwrap()[game_id].as_ref() {
+        let game = game.clone();
         let state = data.get_mut::<BetStateData>().unwrap().get_mut(&game_id).unwrap();
         if state == &BetState::NotBetting {
             *state = BetState::Betting;
+            let conn = connect_db();
+            update_game_state(game.0, game.1, BetState::Betting.into(), &conn);
         } else {
             let reply = MessageBuilder::new()
                         .push("Impossible de commencer les paris.\n(En attente de résultat ou paris déjà en cours)")
@@ -250,6 +253,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
         let white = &game[game_id].as_ref().unwrap().1;
         {
             let conn = connect_db();
+            update_game_state(black.clone(), white.clone(), BetState::WaitingResult.into(), &conn);
             let game = fulgurobot_db::get_game(black.clone(), white.clone(), &conn).unwrap();
             let reply = MessageBuilder::new()
             .push(format!("Les paris de la partie {} vs {} sont finis ! \
@@ -379,6 +383,23 @@ fn coq(context: &mut Context, message: &Message) -> CommandResult {
     if let Err(why) = message.author.direct_message(&context, |m| {
             m.content(&reply)
     }) {
+        println!("Could not send message: {:?}", why);
+    }
+
+    Ok(())
+}
+
+#[command]
+fn state(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
+    let id = args.single::<usize>().unwrap();
+
+    let data = context.data.read();
+    let state = data.get::<BetStateData>().unwrap().get(&id).unwrap();
+
+    let reply = MessageBuilder::new()
+                    .push(format!("State: {:?}", state))
+                    .build();
+    if let Err(why) = message.channel_id.say(&context.http, &reply) {
         println!("Could not send message: {:?}", why);
     }
 

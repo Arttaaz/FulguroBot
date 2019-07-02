@@ -2,7 +2,6 @@
 members = [
     "kgs_handler",
     "fulgurobot_db",
-    # et fulgurobot_db pour pas avoir a republier a chaque fois ? :p
 ]
 
 [package]

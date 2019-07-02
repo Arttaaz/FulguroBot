@@ -19,6 +19,7 @@ pub struct Game {
     pub white: String,
     pub black_bet: i32,
     pub white_bet: i32,
+    pub state: i32,
 }
 
 #[derive(Debug, PartialEq, Queryable, QueryableByName, Insertable)]
