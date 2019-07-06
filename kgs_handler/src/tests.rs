@@ -2,6 +2,10 @@ use crate::*;
 
 #[test]
 fn simple_login() {
-    let kgs_client = Client::start(String::from("FulguroBot"), String::from("correcthorsebatterystaple"));
-    kgs_client.login(); // should not panic!
+    let mut kgs_client = KGSClient::new("theo", "super");
+    assert!(kgs_client.login().is_err());
+    let mut kgs_client = KGSClient::new("theob", "super");
+    assert!(kgs_client.login().is_err());
+    let mut kgs_client = KGSClient::new("theob", "super"); // insert valid credentials here
+    assert!(kgs_client.login().is_err());
 }

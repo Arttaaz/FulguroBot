@@ -1,66 +1,52 @@
-use reqwest::header::{CONNECTION, COOKIE, SET_COOKIE};
-use reqwest::Client;
+use reqwest::r#async::{Client, ClientBuilder, RequestBuilder, Response};
 use reqwest::Error as ReqwestError;
-use reqwest::Response;
 use reqwest::StatusCode;
 
-use serde::Deserialize;
+use futures::future::*;
+
 use std::collections::HashMap;
+use std::time::Duration;
+
+mod config;
+mod game_management;
+mod protocol;
 
 #[cfg(test)]
 mod tests;
 
+use game_management::*;
+use protocol::*;
+
+// This file contains the main structure of the lib KGSClient
+// It also contains the boilerplate code to make requests and the login protocol
+// Other KGS features are in other files
+
 // A client to manage a connection to KGS and fetch data
 pub struct KGSClient {
-    user: User,         // This is us
-    client: Client,     // Reqwest Client to perform HTTP requests
-    logged: bool,       // Wether or not the client is logged to KGS
-    session_id: String, // Session id to use in the connection cookie
+    user: User,                // This is us
+    client: Client,            // Reqwest Client to perform asynchrone HTTP requests
+    logged: bool,              // Wether or not the client is logged to KGS
+    game_manager: GameManager, // A game manager to keep track of games and progress
 }
 
+// Error that can occur while communicating with KGS
+#[derive(Debug)]
+pub enum KGSError {
+    CommunicationError(ReqwestError),
+    ServerError(StatusCode),
+    InvalidCredential,
+    ParsingError,
+    NotLoggedIn,
+    Unkown,
+}
+
+#[allow(dead_code)]
 pub struct User {
     username: String,
     password: String,
 
     rank: String,
     flags: String,
-}
-
-// We can only use string valued JSON to push to KGS
-type JSONData<'a, 'b> = HashMap<&'a str, &'b str>;
-
-// Error that can occur while logging in
-#[derive(Debug)]
-pub enum LoginError {
-    CommunicationError(ReqwestError),
-    ServerError(StatusCode),
-    InvalidCredential,
-    Unkown,
-}
-
-// Error that can occur while fetching data from KGS
-#[derive(Debug)]
-pub enum GetError {
-    CommunicationError(ReqwestError),
-    NotLoggedIn,
-    Unkown,
-}
-
-// The HELLO message we recieve at each request
-// NOTE: used only for parsing, the data is actually discarded
-#[derive(Deserialize, Debug)]
-#[allow(dead_code)]
-#[allow(non_snake_case)]
-struct HelloMessage {
-    versionBugfix: usize,
-    versionMajor: usize,
-    versionMinor: usize,
-    jsonClientBuild: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct Hello {
-    messages: [HelloMessage; 1],
 }
 
 impl KGSClient {
@@ -75,45 +61,44 @@ impl KGSClient {
             flags: String::from(""),
         };
 
+        let client = ClientBuilder::new()
+            .timeout(Duration::new(60, 0))
+            .cookie_store(true)
+            .gzip(true)
+            .build()
+            .expect("Failed to build HTTP client");
+
         Self {
             user,
-            client: Client::new(),
+            client,
             logged: false,
-            session_id: "".to_owned(),
+            game_manager: GameManager::new(),
         }
     }
 
-    // Posts JSON data only
-    fn post(&self, data: &JSONData) -> Result<Response, ReqwestError> {
-        self.client
-            .post("http://localhost:8080/kgs_json_api/access")
-            .json(data)
-            .header(CONNECTION, "keep-alive")
-            .send()
+    // Returns a future that POST the given JSON data
+    fn post_kgs(&self, data: &JSONData) -> impl Future<Item = Response, Error = KGSError> {
+        send_and_assert_200(
+            self.client
+                .post("http://localhost:8080/kgs_json_api/access")
+                .json(&data),
+        )
     }
 
-    // Gets with the current session_id, if the client is not logged in it does nothing
-    fn get(&self) -> Result<Response, GetError> {
-        if !self.logged {
-            return Err(GetError::NotLoggedIn);
-        }
-        let mut session_id = String::from("JSESSIONID=");
-        session_id.push_str(&self.session_id);
-        self.client
-            .get("http://localhost:8080/kgs_json_api/access")
-            .header(CONNECTION, "keep-alive")
-            .header(COOKIE, session_id)
-            .send()
-            .map_err(|err| GetError::CommunicationError(err))
+    // Returns a GET response in a future, the client has to be logged in
+    fn get_kgs(&self) -> impl Future<Item = Response, Error = KGSError> {
+        send_and_assert_200(self.client.get("http://localhost:8080/kgs_json_api/access"))
     }
 
-    // Tries to login to KGS
-    pub fn login(&mut self) -> Result<(), LoginError> {
-        // If the client is already logged in it does nothing
+    fn get_kgs_json(&self) -> impl Future<Item = JSONResponse, Error = KGSError> {
+        self.get_kgs().and_then(get_messages_map)
+    }
+
+    // Tries to login the given user (TODO give the user as a Config parameter)
+    pub fn login(&mut self) -> Result<(), KGSError> {
         if self.logged {
             return Ok(());
         }
-
         // POSTing the login request
         let login_data = hash_map!(
             "type" => "LOGIN",
@@ -121,80 +106,71 @@ impl KGSClient {
             "password" => &self.user.password,
             "locale" => "fr_FR",
         );
-        // We check that the POST returns "OK"
-        let mut res = self.post(&login_data)?;
-        if !res.status().is_success() {
-            return Err(LoginError::ServerError(res.status()));
-        }
-        if res.text()? != "OK" {
-            return Err(LoginError::Unkown);
-        }
 
-        // We can now get the session id from the KGS response
-        let mut cookie_chars: Vec<_> = res
-            .headers()
-            .get(SET_COOKIE)
-            .ok_or(LoginError::Unkown)?
-            .to_str()
-            .map_err(|_| LoginError::Unkown)?
-            .chars()
-            .collect();
-        // Hardcoded filter
-        // TODO maybe nice parsing
-        let session_chars: Vec<u8> = cookie_chars.drain(11..43).map(|c| c as u8).collect();
-        self.session_id = String::from_utf8(session_chars).map_err(|_| LoginError::Unkown)?;
+        let mut rt =
+            tokio::runtime::current_thread::Runtime::new().expect("Failed to access tokio runtime");
+        // Post the request
+        // Check that the body is OK
+        if rt.block_on(self.post_kgs(&login_data).and_then(get_response_text))? == "OK" {
+            self.logged = true;
 
-        self.logged = true;
-
-        // We are finaly ready to get the result of the connection
-        // Hello message
-        self.get()?.json::<Hello>()?;
-        // Result
-        let result = parse_type_message(&self.get()?.text()?)?;
-        if result.contains("LOGIN_FAILED") {
-            // Consume the logout message
-            // We still need to be logged to get a response from KGS
-            if parse_type_message(&self.get()?.text()?)? != "LOGOUT" {
-                // We didn't get the logout message from KGS
-                self.logged = false;
-                Err(LoginError::Unkown)
+            // The login process is fully synchronous, we wait for the GET response
+            // We discard the HELLO message
+            if !rt.block_on(self.get_kgs_json())?.contains_key("HELLO") {
+                return Err(KGSError::ParsingError);
+            }
+            // We look at the login result
+            let login_result = rt.block_on(self.get_kgs_json())?;
+            if login_result.contains_key("LOGIN_FAILED_NO_SUCH_USER")
+                || login_result.contains_key("LOGIN_FAILED_BAD_PASSWORD")
+                || login_result.contains_key("LOGIN_FAILED_USER_ALREADY_EXISTS")
+            {
+                // Wait for the LOGOUT message and fail
+                if !rt.block_on(self.get_kgs_json())?.contains_key("LOGOUT") {
+                    Err(KGSError::Unkown)
+                } else {
+                    self.logged = false;
+                    Err(KGSError::InvalidCredential)
+                }
             } else {
-                // We entered invalid credentials
-                self.logged = false;
-                Err(LoginError::InvalidCredential)
+                // We check that the connection is indeed a sucess
+                if !login_result.contains_key("LOGIN_SUCCESS") {
+                    return Err(KGSError::Unkown);
+                }
+
+                // TODO parsing all the info that we have from kgs
+
+                Ok(())
             }
         } else {
-            // Everything went fine we are logged in
-            Ok(())
+            Err(KGSError::Unkown)
         }
     }
 }
 
-fn parse_type_message(message_text: &str) -> Result<String, GetError> {
-    // Again hardcoded parsing (cannot fail)
-    // TODO better parsing
-    // Go to the oppening quote we want
-    let chars = message_text.chars().skip(22);
-    // Go to the next closing quote
-    let message_type: Vec<_> = chars.take_while(|&c| c != '"').map(|c| c as u8).collect();
-    // We build the String
-    String::from_utf8(message_type).map_err(|_| GetError::Unkown)
+// Build and send the given request and returns a future containing the response checking that we
+// got a status code of 200
+fn send_and_assert_200(request: RequestBuilder) -> impl Future<Item = Response, Error = KGSError> {
+    request
+        .send()
+        .map_err(KGSError::from)
+        // Assert that we get a 200 status code
+        .and_then(|res| {
+            if res.status() == StatusCode::OK {
+                ok::<_, KGSError>(res)
+            } else {
+                err::<_, KGSError>(KGSError::ServerError(res.status()))
+            }
+        })
 }
+
+// We can only use string valued JSON to push to KGS
+type JSONData<'a, 'b> = HashMap<&'a str, &'b str>;
 
 // We interpret any reqwest error as a communication error
-impl From<ReqwestError> for LoginError {
+impl From<ReqwestError> for KGSError {
     fn from(error: ReqwestError) -> Self {
-        LoginError::CommunicationError(error)
-    }
-}
-
-impl From<GetError> for LoginError {
-    fn from(get_error: GetError) -> Self {
-        if let GetError::CommunicationError(error) = get_error {
-            LoginError::CommunicationError(error)
-        } else {
-            LoginError::Unkown
-        }
+        KGSError::CommunicationError(error)
     }
 }
 
