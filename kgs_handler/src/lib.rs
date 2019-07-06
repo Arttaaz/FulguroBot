@@ -14,6 +14,7 @@ mod protocol;
 #[cfg(test)]
 mod tests;
 
+pub use crate::config::*;
 use game_management::*;
 use protocol::*;
 
@@ -23,7 +24,6 @@ use protocol::*;
 
 // A client to manage a connection to KGS and fetch data
 pub struct KGSClient {
-    user: User,                // This is us
     client: Client,            // Reqwest Client to perform asynchrone HTTP requests
     logged: bool,              // Wether or not the client is logged to KGS
     game_manager: GameManager, // A game manager to keep track of games and progress
@@ -40,27 +40,11 @@ pub enum KGSError {
     Unkown,
 }
 
-#[allow(dead_code)]
-pub struct User {
-    username: String,
-    password: String,
-
-    rank: String,
-    flags: String,
-}
-
 impl KGSClient {
     // Instantiate a new client with the given username and password
     // Cannot log in as a guest
     // TODO: do it from a config file
-    pub fn new(username: &str, password: &str) -> Self {
-        let user = User {
-            username: username.to_owned(),
-            password: password.to_owned(),
-            rank: String::from("U"),
-            flags: String::from(""),
-        };
-
+    pub fn new() -> Self {
         let client = ClientBuilder::new()
             .timeout(Duration::new(60, 0))
             .cookie_store(true)
@@ -69,7 +53,6 @@ impl KGSClient {
             .expect("Failed to build HTTP client");
 
         Self {
-            user,
             client,
             logged: false,
             game_manager: GameManager::new(),
@@ -95,15 +78,15 @@ impl KGSClient {
     }
 
     // Tries to login the given user (TODO give the user as a Config parameter)
-    pub fn login(&mut self) -> Result<(), KGSError> {
+    pub fn login(&mut self, config: Config) -> Result<(), KGSError> {
         if self.logged {
             return Ok(());
         }
         // POSTing the login request
         let login_data = hash_map!(
             "type" => "LOGIN",
-            "name"=> &self.user.username,
-            "password" => &self.user.password,
+            "name"=> &config.username,
+            "password" => &config.password,
             "locale" => "fr_FR",
         );
 
@@ -145,6 +128,12 @@ impl KGSClient {
         } else {
             Err(KGSError::Unkown)
         }
+    }
+}
+
+impl Default for KGSClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

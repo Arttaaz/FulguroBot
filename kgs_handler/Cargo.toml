@@ -11,3 +11,4 @@ reqwest = "*"
 futures = "0.1" # This should be removed at some point when rqwest will use the stdlib futures
 tokio = "*"
 serde_json = "*"
+config = "0.9"
