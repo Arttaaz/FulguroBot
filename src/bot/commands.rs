@@ -466,6 +466,7 @@ fn nb_boost(context: &mut Context, message: &Message) -> CommandResult {
 #[command]
 // !give user_id nb_coq
 fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
+    println!("hello?");
     let mut args_ok = true;
     let _ = args.single::<String>().unwrap_or_else(|_| { // we discard the name here because we get the id through message.mentions()
         args_ok = false; "".to_owned()
@@ -474,23 +475,40 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         args_ok = false; 0
     });
     if !args_ok || nb_coq <= 0 {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage: !give @name nb_coq (>= 0)") {
+        if let Err(why) = message.channel_id.say(&context.http, "Usage: !give @name nb_coq (> 0)") {
             println!("Could not send message: {:?}", why);
         }
         return Ok(());
     }
-    let id = message.mentions.first().unwrap().to_string();
+
+    let id = message.mentions.first().unwrap();
+    let id_s = id.to_string();
 
     let conn = connect_db();
     if !user_exists(message.author.id.to_string(), &conn) {
         create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
     }
-
-    let coq = get_coq_of_user(message.author.id.to_string(), &conn);
-    if coq - nb_coq >= 0 {
-        //add transaction here
+    if !user_exists(id_s.clone(), &conn) {
+        if let Err(why) = message.channel_id.say(&context.http, format!("L'utilisateur {} n'est pas dans la base de données du bot !", id)) {
+            println!("Could not send message: {:?}", why);
+        }
+        return Ok(())
     }
-    // add feedback
+
+    if let Err(_) = trade_coq(message.author.id.to_string(), id_s, nb_coq, &conn) {
+        if let Err(why) = message.channel_id.say(&context.http, "Erreur pendant l'échange de coquillages.") {
+            println!("Could not send message: {:?}", why);
+        }
+    } else {
+        let reply = MessageBuilder::new()
+            .push_bold_safe(format!("{}", message.author))
+            .push(format!(" a donné {} coquillages à ", nb_coq))
+            .push_bold_safe(format!("{}", id))
+            .build();
+        if let Err(why ) = message.channel_id.say(&context.http, &reply) {
+            println!("Could not send message: {:?}", why);
+        }
+    }
 
     Ok(())
 }

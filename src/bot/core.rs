@@ -9,7 +9,7 @@ use serenity::utils::MessageBuilder;
 //commands use
 use crate::bot::commands::*;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum BetState {
     NotBetting,
     Betting,
@@ -61,7 +61,7 @@ pub fn init_bot() -> Client {
     group!({
         name: "general",
         options: {},
-        commands: [noir, blanc, fulgurobot, coq, nb_boost, boost],
+        commands: [noir, blanc, fulgurobot, coq, nb_boost, boost, give],
     });
 
     group!({

@@ -96,6 +96,21 @@ pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> 
     None
 }
 
+pub fn trade_coq(id_src: String, id_dst: String, nb_coq: i32, conn: &SqliteConnection) -> Result<(),diesel::result::Error> {
+    conn.transaction::<_,diesel::result::Error,_>(|| {
+        let coq = get_coq_of_user(id_src.clone(), conn);
+        if coq - nb_coq >= 0 {
+            add_coq_to_user(id_src, -nb_coq, conn);
+            add_coq_to_user(id_dst, nb_coq, conn);
+            Ok(())
+        } else {
+            Err(diesel::result::Error::RollbackTransaction)
+        }
+    })?;
+
+    Ok(())
+}
+
 ///////////////////////////////////
 // BETS
 ///////////////////////////////////
