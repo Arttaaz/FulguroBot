@@ -413,11 +413,15 @@ fn state(context: &mut Context, message: &Message, mut args: Args) -> CommandRes
 #[command]
 fn boost(context: &mut Context, message: &Message) -> CommandResult {
     let conn = connect_db();
+
+    // add user if he/she doesn't exists
     if !user_exists(message.author.id.to_string(), &conn) {
         create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
     }
-    if let Some(nb_boost_left) = update_boost_user(message.author.id.to_string(), -1, &conn) {
-        add_coq_to_user(message.author.id.to_string(), 200, &conn);
+
+    // update_boost_user check if user has enough boost and use one (adds 200 coq to user)
+    if let Ok(nb_boost_left) = update_boost_user(message.author.id.to_string(), -1, &conn) {
+        //feedback
         let reply = MessageBuilder::new()
             .push_bold_safe(&message.author.name)
             .push(", Tu as gagné 200 coquillages !\n")
@@ -441,16 +445,17 @@ fn boost(context: &mut Context, message: &Message) -> CommandResult {
 #[command]
 fn nb_boost(context: &mut Context, message: &Message) -> CommandResult {
     let conn = connect_db();
+    // add user if he/she doesn't exists
     if !user_exists(message.author.id.to_string(), &conn) {
         create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
     }
 
-    let nb_boost = get_boost_user(message.author.id.to_string(), &conn);
-    if nb_boost == -1 {
-        println!("Error reading database");
-        return Ok(())
-    }
+    let nb_boost = match get_boost_user(message.author.id.to_string(), &conn) {
+        Ok(n) => n,
+        Err(e) => { println!("Error reading database: {:?}", e); return Ok(()) }
+    };
 
+    // feedback
     let reply = MessageBuilder::new()
         .push_bold_safe(&message.author.name)
         .push(format!(", Il te reste : {} boosts !", nb_boost))
@@ -466,7 +471,7 @@ fn nb_boost(context: &mut Context, message: &Message) -> CommandResult {
 #[command]
 // !give user_id nb_coq
 fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
-    println!("hello?");
+    // checking args are correct
     let mut args_ok = true;
     let _ = args.single::<String>().unwrap_or_else(|_| { // we discard the name here because we get the id through message.mentions()
         args_ok = false; "".to_owned()
@@ -481,6 +486,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         return Ok(());
     }
 
+    //retrieving user to give coq to
     let id = message.mentions.first().unwrap();
     let id_s = id.to_string();
 
@@ -488,6 +494,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     if !user_exists(message.author.id.to_string(), &conn) {
         create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
     }
+    // if user to give coq to doesn't exit cancel operation
     if !user_exists(id_s.clone(), &conn) {
         if let Err(why) = message.channel_id.say(&context.http, format!("L'utilisateur {} n'est pas dans la base de données du bot !", id)) {
             println!("Could not send message: {:?}", why);
@@ -500,6 +507,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
             println!("Could not send message: {:?}", why);
         }
     } else {
+        // feedback
         let reply = MessageBuilder::new()
             .push_bold_safe(format!("{}", message.author))
             .push(format!(" a donné {} coquillages à ", nb_coq))

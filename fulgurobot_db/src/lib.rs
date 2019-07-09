@@ -75,25 +75,28 @@ pub fn get_coq_of_user(id: String, conn: &SqliteConnection) -> i32 {
     }
 }
 
-pub fn get_boost_user(id: String, conn: &SqliteConnection) -> i32 {
-    match users::dsl::users.select(users::dsl::nb_boost).filter(users::dsl::id.eq(id)).first::<i32>(conn) {
-        Ok(nb_boost) => nb_boost,
-        Err(_) => -1,
-    }
+pub fn get_boost_user(id: String, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
+    users::dsl::users.select(users::dsl::nb_boost).filter(users::dsl::id.eq(id)).first::<i32>(conn)
 }
 
-pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> Option<i32> {
-    let nb_boost = get_boost_user(id.clone(), conn);
-    if nb_boost != -1 {
-        if nb_boost + modifier >= 0 {
-            diesel::update(users::dsl::users.find(id)).set(users::dsl::nb_boost.eq(nb_boost+modifier)).execute(conn)
-                .expect("Could not update nb_boost");
-            return Some(nb_boost+modifier);
-        } else {
-            return None;
-        }
+pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
+    // if removing boost and removing more than one cancel operation
+    if modifier < 0 && modifier != -1 {
+        return Err(diesel::result::Error::RollbackTransaction)
     }
-    None
+    
+    let nb_boost = get_boost_user(id.clone(), conn)?;
+    conn.transaction::<_, diesel::result::Error,_>(|| {
+        if nb_boost > 0 {
+            diesel::update(users::dsl::users.find(id.clone())).set(users::dsl::nb_boost.eq(nb_boost+modifier)).execute(conn)
+            .expect("Could not update nb_boost");
+            add_coq_to_user(id, 200, conn);
+            Ok(())
+        } else {
+            Err(diesel::result::Error::RollbackTransaction)
+        }
+    })?;
+    Ok(nb_boost+modifier)
 }
 
 pub fn trade_coq(id_src: String, id_dst: String, nb_coq: i32, conn: &SqliteConnection) -> Result<(),diesel::result::Error> {
