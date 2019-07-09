@@ -267,8 +267,8 @@ fn test_get_users_bet_color() {
     let conn = connect_db();
     reset_database(&conn);
 
-    create_user(0, "Romain Fecher".to_string(), &conn);
-    add_bet(0, "gne".to_string(), "gne".to_string(), 42, "blanc".to_string(), &conn);
+    create_user(0.to_string(), "Romain Fecher".to_string(), &conn);
+    add_bet(0.to_string(), "gne".to_string(), "gne".to_string(), 42, "blanc".to_string(), &conn);
 
     let expected_users = vec![Users {
         id: 0,
