@@ -84,7 +84,7 @@ pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> 
     if modifier < 0 && modifier != -1 {
         return Err(diesel::result::Error::RollbackTransaction)
     }
-    
+
     let nb_boost = get_boost_user(id.clone(), conn)?;
     conn.transaction::<_, diesel::result::Error,_>(|| {
         if nb_boost > 0 {
@@ -274,6 +274,7 @@ fn test_get_users_bet_color() {
         id: 0,
         name: "Romain Fecher".to_string(),
         nb_coq: 1000,
+        nb_boost: 5,
     }];
 
     assert_eq!(get_users_bet_color("gne".to_string(), "gne".to_string(), "blanc".to_string(), &conn).unwrap(), expected_users);
