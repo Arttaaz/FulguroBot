@@ -271,7 +271,7 @@ fn test_get_users_bet_color() {
     add_bet(0.to_string(), "gne".to_string(), "gne".to_string(), 42, "blanc".to_string(), &conn);
 
     let expected_users = vec![Users {
-        id: 0,
+        id: 0.to_string(),
         name: "Romain Fecher".to_string(),
         nb_coq: 1000,
         nb_boost: 5,
