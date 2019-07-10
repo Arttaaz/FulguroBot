@@ -6,7 +6,7 @@ members = [
 
 [package]
 name = "fulguro_bot"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Arttaaz <arttaaz@gmail.com>", "Jiriakel <jorisvdb96@gmail.com>"]
 edition = "2018"
 

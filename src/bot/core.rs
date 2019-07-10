@@ -5,7 +5,6 @@ use serenity::client::{Client, EventHandler};
 use serenity::framework::StandardFramework;
 use serenity::framework::standard::macros::group;
 use serenity::utils::MessageBuilder;
-
 //commands use
 use crate::bot::commands::*;
 
@@ -51,6 +50,25 @@ struct Handler;
 
 impl EventHandler for Handler {}
 
+group!({
+    name: "general",
+    options: {},
+    commands: [noir, blanc, fulgurobot, coq, nb_boost, boost, give]
+});
+
+group!({
+    name: "control",
+    options: { allowed_roles: ["Animateur", "Team Codeur", "Modération"] },
+    commands: [create_game, debut_paris, fin_paris, resultat],
+});
+
+group!({
+    name: "debug",
+    options: { allowed_roles: ["Team Codeur", "Admin FulguroGo"] },
+    commands: [state],
+});
+
+
 pub fn init_bot() -> Client {
     if let Err(unset) = env::var("DISCORD_TOKEN") {
         println!("{}", unset);
@@ -58,23 +76,7 @@ pub fn init_bot() -> Client {
         panic!()
     }
 
-    group!({
-        name: "general",
-        options: {},
-        commands: [noir, blanc, fulgurobot, coq, nb_boost, boost, give],
-    });
 
-    group!({
-        name: "control",
-        options: { allowed_roles: ["Animateur", "Team Codeur", "Modération"] },
-        commands: [create_game, debut_paris, fin_paris, resultat],
-    });
-
-    group!({
-        name: "debug",
-        options: { allowed_roles: ["Team Codeur", "Admin FulguroGo"] },
-        commands: [state],
-    });
 
     let mut client = Client::new(&env::var("DISCORD_TOKEN").unwrap(), Handler).expect("Error creating client");
     let mut chan_id = serenity::model::id::ChannelId(0);

@@ -479,8 +479,13 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     let nb_coq = args.single::<i32>().unwrap_or_else(|_| {
         args_ok = false; 0
     });
-    if !args_ok || nb_coq <= 0 {
+    if !args_ok || nb_coq <= 0  {
         if let Err(why) = message.channel_id.say(&context.http, "Usage: !give @name nb_coq (> 0)") {
+            println!("Could not send message: {:?}", why);
+        }
+        return Ok(());
+    } else if nb_coq > 2000 { // limite de 2000 coquillages
+        if let Err(why) = message.channel_id.say(&context.http, "Impossible de donner plus de 2000 coquillages !") {
             println!("Could not send message: {:?}", why);
         }
         return Ok(());
