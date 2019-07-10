@@ -15,6 +15,7 @@ use crate::schema::*;
 
 const NB_BASE_COQ : i32 = 1000;
 const NB_BASE_BOOST: i32 = 5;
+const NB_COQ_BOOST: i32 = 500;
 
 
 pub fn connect_db() -> SqliteConnection {
@@ -90,7 +91,7 @@ pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> 
         if nb_boost > 0 {
             diesel::update(users::dsl::users.find(id.clone())).set(users::dsl::nb_boost.eq(nb_boost+modifier)).execute(conn)
             .expect("Could not update nb_boost");
-            add_coq_to_user(id, 200, conn);
+            add_coq_to_user(id, NB_COQ_BOOST, conn);
             Ok(())
         } else {
             Err(diesel::result::Error::RollbackTransaction)
