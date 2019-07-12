@@ -5,16 +5,34 @@ use serenity::client::{Client, EventHandler};
 use serenity::framework::StandardFramework;
 use serenity::framework::standard::macros::group;
 use serenity::utils::MessageBuilder;
-
 //commands use
 use crate::bot::commands::*;
 
-#[derive(Debug, PartialEq)]
-#[allow(dead_code)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum BetState {
     NotBetting,
     Betting,
     WaitingResult,
+}
+impl From<BetState> for i32 {
+    fn from (state: BetState) -> Self {
+        match state {
+            BetState::NotBetting => 0,
+            BetState::Betting => 1,
+            BetState::WaitingResult => 2,
+        }
+    }
+}
+
+impl From<i32> for BetState {
+    fn from (state: i32) -> Self {
+        match state {
+            0 => BetState::NotBetting,
+            1 => BetState::Betting,
+            2 => BetState::WaitingResult,
+            _ => BetState::NotBetting,
+        }
+    }
 }
 
 pub struct BetStateData;
@@ -32,6 +50,25 @@ struct Handler;
 
 impl EventHandler for Handler {}
 
+group!({
+    name: "general",
+    options: {},
+    commands: [noir, blanc, fulgurobot, coq, nb_boost, boost, /*give*/]
+});
+
+group!({
+    name: "control",
+    options: { allowed_roles: ["Animateur", "Team Codeur", "Modération"] },
+    commands: [create_game, debut_paris, fin_paris, resultat],
+});
+
+group!({
+    name: "debug",
+    options: { allowed_roles: ["Team Codeur", "Admin FulguroGo"] },
+    commands: [state],
+});
+
+
 pub fn init_bot() -> Client {
     if let Err(unset) = env::var("DISCORD_TOKEN") {
         println!("{}", unset);
@@ -39,17 +76,7 @@ pub fn init_bot() -> Client {
         panic!()
     }
 
-    group!({
-        name: "general",
-        options: {},
-        commands: [noir, blanc, fulgurobot, coq],
-    });
 
-    group!({
-        name: "control",
-        options: { allowed_roles: ["Animateur", "Team Codeur", "Modération"] },
-        commands: [create_game, debut_paris, fin_paris, resultat],
-    });
 
     let mut client = Client::new(&env::var("DISCORD_TOKEN").unwrap(), Handler).expect("Error creating client");
     let mut chan_id = serenity::model::id::ChannelId(0);
@@ -71,7 +98,8 @@ pub fn init_bot() -> Client {
                             // .allowed_channels(vec![ChannelId()])
                             //add commands here
                             .group(&GENERAL_GROUP)
-                            .group(&CONTROL_GROUP));
+                            .group(&CONTROL_GROUP)
+                            .group(&DEBUG_GROUP));
 
     {
         let mut data = client.data.write();
@@ -96,9 +124,11 @@ fn restore_context(client: &Client) {
     if !games.is_empty() {
         let mut data = client.data.write();
         let g = data.get_mut::<GameData>().unwrap();
+        let mut states : Vec<BetState> = Vec::new();
 
         for game in games {
             g.push(Some((game.black, game.white)));
+            states.push(game.state.into());
         }
 
         let mut message = MessageBuilder::new();
@@ -129,7 +159,7 @@ fn restore_context(client: &Client) {
         let size = g.len();
         let b = data.get_mut::<BetStateData>().unwrap();
         for i in 0..size {
-            b.insert(i, BetState::NotBetting);
+            b.insert(i, states[i]);
         }
     }
 }

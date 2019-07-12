@@ -1,7 +1,8 @@
 CREATE TABLE users(
-  id      TEXT NOT NULL PRIMARY KEY,
-  name    TEXT NOT NULL,
-  nb_coq  INT NOT NULL
+  id        TEXT NOT NULL PRIMARY KEY,
+  name      TEXT NOT NULL,
+  nb_coq    INT NOT NULL,
+  nb_boost  INT NOT NULL
 );
 
 CREATE TABLE game (
@@ -9,6 +10,7 @@ CREATE TABLE game (
     white     TEXT NOT NULL,
     black_bet INT NOT NULL,
     white_bet INT NOT NULL,
+    state     INT NOT NULL,
 
     PRIMARY KEY (black, white)
 );

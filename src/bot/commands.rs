@@ -137,6 +137,7 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
         if let Err(why) = message.channel_id.say(&context.http, "Usage: !create_game noir blanc") {
             println!("Could not send message: {:?}", why);
         }
+        return Ok(());
     }
 
     {
@@ -189,13 +190,17 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
         if let Err(why) = message.channel_id.say(&context.http, "Usage: !debut_paris game_id") {
             println!("Could not send message: {:?}", why);
         }
+        return Ok(());
     }
 
     let mut data = context.data.write();
-    if let Some(_game) = data.get::<GameData>().unwrap()[game_id].as_ref() {
+    if let Some(game) = data.get::<GameData>().unwrap()[game_id].as_ref() {
+        let game = game.clone();
         let state = data.get_mut::<BetStateData>().unwrap().get_mut(&game_id).unwrap();
         if state == &BetState::NotBetting {
             *state = BetState::Betting;
+            let conn = connect_db();
+            update_game_state(game.0, game.1, BetState::Betting.into(), &conn);
         } else {
             let reply = MessageBuilder::new()
                         .push("Impossible de commencer les paris.\n(En attente de résultat ou paris déjà en cours)")
@@ -233,6 +238,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
         if let Err(why) = message.channel_id.say(&context.http, "Usage: !fin_paris game_id") {
             println!("Could not send message: {:?}", why);
         }
+        return Ok(());
     }
 
     let mut data = context.data.write();
@@ -250,6 +256,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
         let white = &game[game_id].as_ref().unwrap().1;
         {
             let conn = connect_db();
+            update_game_state(black.clone(), white.clone(), BetState::WaitingResult.into(), &conn);
             let game = fulgurobot_db::get_game(black.clone(), white.clone(), &conn).unwrap();
             let reply = MessageBuilder::new()
             .push(format!("Les paris de la partie {} vs {} sont finis ! \
@@ -290,6 +297,7 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
         if let Err(why) = message.channel_id.say(&context.http, "Usage: !resultat game_id couleur") {
             println!("Could not send message: {:?}", why);
         }
+        return Ok(());
     }
 
     let mut data = context.data.write();
@@ -380,6 +388,139 @@ fn coq(context: &mut Context, message: &Message) -> CommandResult {
             m.content(&reply)
     }) {
         println!("Could not send message: {:?}", why);
+    }
+
+    Ok(())
+}
+
+#[command]
+fn state(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
+    let id = args.single::<usize>().unwrap();
+
+    let data = context.data.read();
+    let state = data.get::<BetStateData>().unwrap().get(&id).unwrap();
+
+    let reply = MessageBuilder::new()
+                    .push(format!("State: {:?}", state))
+                    .build();
+    if let Err(why) = message.channel_id.say(&context.http, &reply) {
+        println!("Could not send message: {:?}", why);
+    }
+
+    Ok(())
+}
+
+#[command]
+fn boost(context: &mut Context, message: &Message) -> CommandResult {
+    let conn = connect_db();
+
+    // add user if he/she doesn't exists
+    if !user_exists(message.author.id.to_string(), &conn) {
+        create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
+    }
+
+    // update_boost_user check if user has enough boost and use one (adds 200 coq to user)
+    if let Ok(nb_boost_left) = update_boost_user(message.author.id.to_string(), -1, &conn) {
+        //feedback
+        let reply = MessageBuilder::new()
+            .push_bold_safe(&message.author.name)
+            .push(", Tu as gagné 200 coquillages !\n")
+            .push(format!("Il te reste {} boosts.", nb_boost_left))
+            .build();
+        if let Err(why) = message.channel_id.say(&context.http, &reply) {
+            println!("Couldn't send message {:?}", why);
+        }
+    } else {
+        let reply = MessageBuilder::new()
+            .push_bold_safe(&message.author.name)
+            .push(", Tu n'as plus de boosts !")
+            .build();
+        if let Err(why) = message.channel_id.say(&context.http, &reply) {
+            println!("Couldn't send message {:?}", why);
+        }
+    }
+    Ok(())
+}
+
+#[command]
+fn nb_boost(context: &mut Context, message: &Message) -> CommandResult {
+    let conn = connect_db();
+    // add user if he/she doesn't exists
+    if !user_exists(message.author.id.to_string(), &conn) {
+        create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
+    }
+
+    let nb_boost = match get_boost_user(message.author.id.to_string(), &conn) {
+        Ok(n) => n,
+        Err(e) => { println!("Error reading database: {:?}", e); return Ok(()) }
+    };
+
+    // feedback
+    let reply = MessageBuilder::new()
+        .push_bold_safe(&message.author.name)
+        .push(format!(", Il te reste : {} boosts !", nb_boost))
+        .build();
+    if let Err(why) = message.author.direct_message(&context, |m| {
+            m.content(&reply)
+    }) {
+        println!("Couldn't send message {:?}", why);
+    }
+    Ok(())
+}
+
+#[command]
+// !give user_id nb_coq
+fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
+    // checking args are correct
+    let mut args_ok = true;
+    let _ = args.single::<String>().unwrap_or_else(|_| { // we discard the name here because we get the id through message.mentions()
+        args_ok = false; "".to_owned()
+    });
+    let nb_coq = args.single::<i32>().unwrap_or_else(|_| {
+        args_ok = false; 0
+    });
+    if !args_ok || nb_coq <= 0  {
+        if let Err(why) = message.channel_id.say(&context.http, "Usage: !give @name nb_coq (> 0)") {
+            println!("Could not send message: {:?}", why);
+        }
+        return Ok(());
+    } else if nb_coq > 2000 { // limite de 2000 coquillages
+        if let Err(why) = message.channel_id.say(&context.http, "Impossible de donner plus de 2000 coquillages !") {
+            println!("Could not send message: {:?}", why);
+        }
+        return Ok(());
+    }
+
+    //retrieving user to give coq to
+    let id = message.mentions.first().unwrap();
+    let id_s = id.to_string();
+
+    let conn = connect_db();
+    if !user_exists(message.author.id.to_string(), &conn) {
+        create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
+    }
+    // if user to give coq to doesn't exit cancel operation
+    if !user_exists(id_s.clone(), &conn) {
+        if let Err(why) = message.channel_id.say(&context.http, format!("L'utilisateur {} n'est pas dans la base de données du bot !", id)) {
+            println!("Could not send message: {:?}", why);
+        }
+        return Ok(())
+    }
+
+    if let Err(_) = trade_coq(message.author.id.to_string(), id_s, nb_coq, &conn) {
+        if let Err(why) = message.channel_id.say(&context.http, "Erreur pendant l'échange de coquillages.") {
+            println!("Could not send message: {:?}", why);
+        }
+    } else {
+        // feedback
+        let reply = MessageBuilder::new()
+            .push_bold_safe(format!("{}", message.author))
+            .push(format!(" a donné {} coquillages à ", nb_coq))
+            .push_bold_safe(format!("{}", id))
+            .build();
+        if let Err(why ) = message.channel_id.say(&context.http, &reply) {
+            println!("Could not send message: {:?}", why);
+        }
     }
 
     Ok(())

@@ -13,6 +13,10 @@ mod schema;
 use crate::models::*;
 use crate::schema::*;
 
+const NB_BASE_COQ : i32 = 1000;
+const NB_BASE_BOOST: i32 = 5;
+const NB_COQ_BOOST: i32 = 500;
+
 
 pub fn connect_db() -> SqliteConnection {
     dotenv().ok();
@@ -29,7 +33,8 @@ pub fn create_user(id: String, name: String, conn: &SqliteConnection) {
     let user = Users {
         id,
         name,
-        nb_coq: 1000,
+        nb_coq: NB_BASE_COQ,
+        nb_boost: NB_BASE_BOOST,
     };
     insert_into(users::dsl::users).values(user).execute(conn).expect("Failed to add user");
 }
@@ -69,6 +74,45 @@ pub fn get_coq_of_user(id: String, conn: &SqliteConnection) -> i32 {
         Ok(nb_coq) => nb_coq,
         Err(_) => -1,
     }
+}
+
+pub fn get_boost_user(id: String, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
+    users::dsl::users.select(users::dsl::nb_boost).filter(users::dsl::id.eq(id)).first::<i32>(conn)
+}
+
+pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
+    // if removing boost and removing more than one cancel operation
+    if modifier < 0 && modifier != -1 {
+        return Err(diesel::result::Error::RollbackTransaction)
+    }
+
+    let nb_boost = get_boost_user(id.clone(), conn)?;
+    conn.transaction::<_, diesel::result::Error,_>(|| {
+        if nb_boost > 0 {
+            diesel::update(users::dsl::users.find(id.clone())).set(users::dsl::nb_boost.eq(nb_boost+modifier)).execute(conn)
+            .expect("Could not update nb_boost");
+            add_coq_to_user(id, NB_COQ_BOOST, conn);
+            Ok(())
+        } else {
+            Err(diesel::result::Error::RollbackTransaction)
+        }
+    })?;
+    Ok(nb_boost+modifier)
+}
+
+pub fn trade_coq(id_src: String, id_dst: String, nb_coq: i32, conn: &SqliteConnection) -> Result<(),diesel::result::Error> {
+    conn.transaction::<_,diesel::result::Error,_>(|| {
+        let coq = get_coq_of_user(id_src.clone(), conn);
+        if coq - nb_coq >= 0 {
+            add_coq_to_user(id_src, -nb_coq, conn);
+            add_coq_to_user(id_dst, nb_coq, conn);
+            Ok(())
+        } else {
+            Err(diesel::result::Error::RollbackTransaction)
+        }
+    })?;
+
+    Ok(())
 }
 
 ///////////////////////////////////
@@ -164,6 +208,7 @@ pub fn create_game(black: String, white: String, conn: &SqliteConnection) {
         white,
         black_bet: 0,
         white_bet: 0,
+        state: 0,
     };
 
     insert_into(game::dsl::game).values(game).execute(conn).expect("Could not create game");
@@ -198,6 +243,14 @@ pub fn update_game_bet(black: String, white: String, color: String, new_total: i
     }
 }
 
+pub fn update_game_state(black: String, white: String, state: i32, conn: &SqliteConnection) {
+    diesel::update(game::dsl::game).set(game::dsl::state.eq(state))
+            .filter(game::dsl::black.eq(black))
+            .filter(game::dsl::white.eq(white))
+            .execute(conn)
+            .expect("Could not update game state");
+}
+
 pub fn delete_game(black: String, white: String, conn: &SqliteConnection) {
     diesel::delete(game::dsl::game).filter(game::dsl::black.eq(black)).filter(game::dsl::white.eq(white)).execute(conn)
         .expect("Could not delete game");
@@ -215,13 +268,14 @@ fn test_get_users_bet_color() {
     let conn = connect_db();
     reset_database(&conn);
 
-    create_user(0, "Romain Fecher".to_string(), &conn);
-    add_bet(0, "gne".to_string(), "gne".to_string(), 42, "blanc".to_string(), &conn);
+    create_user(0.to_string(), "Romain Fecher".to_string(), &conn);
+    add_bet(0.to_string(), "gne".to_string(), "gne".to_string(), 42, "blanc".to_string(), &conn);
 
     let expected_users = vec![Users {
-        id: 0,
+        id: 0.to_string(),
         name: "Romain Fecher".to_string(),
         nb_coq: 1000,
+        nb_boost: 5,
     }];
 
     assert_eq!(get_users_bet_color("gne".to_string(), "gne".to_string(), "blanc".to_string(), &conn).unwrap(), expected_users);

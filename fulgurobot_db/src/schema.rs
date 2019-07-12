@@ -14,6 +14,7 @@ table! {
         white -> Text,
         black_bet -> Integer,
         white_bet -> Integer,
+        state -> Integer,
     }
 }
 
@@ -22,6 +23,7 @@ table! {
         id -> Text,
         name -> Text,
         nb_coq -> Integer,
+        nb_boost -> Integer,
     }
 }
 
