@@ -53,7 +53,7 @@ impl EventHandler for Handler {}
 group!({
     name: "general",
     options: {},
-    commands: [noir, blanc, fulgurobot, coq, nb_boost, boost, /*give*/]
+    commands: [noir, blanc, fulgurobot, coq, nb_boost, boost, etat, /*give*/]
 });
 
 group!({
@@ -95,7 +95,6 @@ pub fn init_bot() -> Client {
                             .configure(|c| c.prefix("!")
                                             .allow_dm(false)
                                             .allowed_channels(vec![chan_id].into_iter().collect()))
-                            // .allowed_channels(vec![ChannelId()])
                             //add commands here
                             .group(&GENERAL_GROUP)
                             .group(&CONTROL_GROUP)
@@ -113,6 +112,7 @@ pub fn init_bot() -> Client {
 }
 
 pub fn launch_bot(mut client: Client) {
+
     if let Err(why) = client.start() {
         println!("Couldn't start FulguroBot: {}", why);
     }
@@ -148,6 +148,11 @@ fn restore_context(client: &Client) {
                 if let Err(why) = message {
                     println!("Could not send restore context message: {:?}", why);
                 } else if let Ok(m) = message {
+                    for pin in m.channel_id.pins(http).unwrap() {
+                        if let Err(why) = m.channel_id.unpin(http, &pin) {
+                            println!("Could not unpin message: {:?}", why);
+                        }
+                    }
                     if let Err(why) = m.channel_id.pin(http, &m) {
                         println!("Could not pin message: {:?}", why);
                     }

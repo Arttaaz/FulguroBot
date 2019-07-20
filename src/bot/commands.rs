@@ -1,12 +1,14 @@
-use serenity::framework::standard::Args;
-use serenity::client::Context;
-use serenity::framework::standard::CommandResult;
-use crate::bot::core::GameData;
-use serenity::utils::MessageBuilder;
-use serenity::model::channel::Message;
-use serenity::framework::standard::macros::command;
 use fulgurobot_db::*;
-use super::{BetState, BetStateData};
+use serenity::{
+    client::Context,
+    framework::standard::{ Args, CommandResult, macros::command },
+    model::channel::Message,
+    utils::MessageBuilder,
+};
+use super::{
+    core::GameData,
+    BetState, BetStateData
+};
 
 
 fn bet_on_color(color: String,
@@ -90,6 +92,7 @@ fn bet_on_color(color: String,
 #[command]
 // !fulgurobot
 pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
+    //change to embedded message
     let mut reply = MessageBuilder::new();
     reply.push("Commandes pour parier :\n!noir i x -> parie x coquillages sur noir pour la partie i\n!blanc i x -> parie x coquillages sur blanc pour la partie i\n!coq -> envoie en message privé votre nombre de coquillages");
     if message.author.has_role(&context, message.guild_id.unwrap(), 400_904_374_219_571_201).unwrap() ||
@@ -521,6 +524,58 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         if let Err(why ) = message.channel_id.say(&context.http, &reply) {
             println!("Could not send message: {:?}", why);
         }
+    }
+
+    Ok(())
+}
+
+#[command]
+fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
+    let mut arg_ok = true;
+    let id = args.single::<usize>().unwrap_or_else(|_| {
+        arg_ok = false; 0
+    });
+    if !arg_ok {
+        if let Err(why) = message.channel_id.say(&context.http, "Usage : !etat id") {
+            println!("Could not send message: {:?}", why);
+        }
+        return Ok(())
+    }
+
+    let data = context.data.read();
+    let state = match data.get::<BetStateData>().unwrap().get(&id) {
+        Some(state) => state,
+        None => {
+            if let Err(why) = message.channel_id.say(&context.http, "Je ne connais pas cet id !") {
+                println!("Could not send message: {:?}", why);
+            }
+            return Ok(())
+        },
+    };
+    let mut reply = MessageBuilder::new();
+    match state {
+        BetState::Betting => reply.push("Les paris sont ouverts !\n"),
+        BetState::WaitingResult => reply.push("Les paris sont fermés !\n"),
+        BetState::NotBetting => {
+            reply.push("Les paris n'ont pas commencés.");
+            let reply = reply.build();
+            if let Err(why) = message.channel_id.say(&context.http, &reply) {
+                println!("Could not send message: {:?}", why);
+            }
+            return Ok(())
+        }
+    };
+    let game = match data.get::<GameData>().unwrap()[id].as_ref() {
+        Some(g) => g,
+        None => return Ok(()),
+    };
+    let conn = connect_db();
+    let game = get_game(game.0.clone(), game.1.clone(), &conn).unwrap();
+    let reply = reply.push(format!("Total pour {} : {}", game.black, game.black_bet))
+                    .push(format!("\nTotal pour {} : {}", game.white, game.white_bet))
+                    .build();
+    if let Err(why) = message.channel_id.say(&context.http, &reply) {
+        println!("Could not send message: {:?}", why);
     }
 
     Ok(())
