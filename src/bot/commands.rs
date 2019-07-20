@@ -2,6 +2,7 @@ use fulgurobot_db::*;
 use serenity::{
     client::Context,
     framework::standard::{ Args, CommandResult, macros::command },
+    http::Http,
     model::channel::Message,
     utils::MessageBuilder,
 };
@@ -10,6 +11,11 @@ use super::{
     BetState, BetStateData
 };
 
+fn send_message(message: &Message, http: &Http, reply: &str) {
+    if let Err(why) = message.channel_id.say(http, reply) {
+        println!("Could not send message: {:?}", why);
+    }
+}
 
 fn bet_on_color(color: String,
                 context: &mut serenity::prelude::Context,
@@ -24,9 +30,7 @@ fn bet_on_color(color: String,
         args_ok = false; 0
     });
     if !args_ok {
-        if let Err(why) = message.channel_id.say(&context.http, format!("Usage: !{} game_id nb_coq", &color)) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &format!("Usage: !{} game_id nb_coq", &color));
         return
     }
 
@@ -34,15 +38,11 @@ fn bet_on_color(color: String,
     if let Some(game) = data.get::<BetStateData>().unwrap().get(&game_id) {
         match game {
             BetState::NotBetting    => {
-                if let Err(why) = message.channel_id.say(&context.http, "Les paris n'ont pas démarré.") {
-                    println!("Could not send message: {:?}", why);
-                }
+                send_message(message, &context.http, "Les paris n'ont pas démarré.");
                 return
             },
             BetState::WaitingResult => {
-                if let Err(why) = message.channel_id.say(&context.http, "Les paris sont finis !") {
-                    println!("Could not send message: {:?}", why);
-                }
+                send_message(message, &context.http, "Les paris sont finis !");
                 return
             },
             _ => ()
@@ -61,9 +61,7 @@ fn bet_on_color(color: String,
                     .push_bold_safe(message.author.name.clone())
                     .push(", Cette partie n'existe pas.")
                     .build();
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
         return
     }
     let black = data.get::<GameData>().unwrap()[game_id].as_ref().unwrap().0.clone();
@@ -82,9 +80,7 @@ fn bet_on_color(color: String,
                     .push_bold_safe(message.author.name.clone())
                     .push(", Tu n'as pas assez de coquillages.")
                     .build();
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
     }
 }
 
@@ -137,10 +133,8 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
         args_ok = false; "".into()
     });
     if !args_ok {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage: !create_game noir blanc") {
-            println!("Could not send message: {:?}", why);
-        }
-        return Ok(());
+        send_message(message, &context.http, "Usage: !create_game noir blanc");
+        return Ok(())
     }
 
     {
@@ -190,10 +184,8 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
     });
 
     if !arg_ok {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage: !debut_paris game_id") {
-            println!("Could not send message: {:?}", why);
-        }
-        return Ok(());
+        send_message(message, &context.http, "Usage: !debut_paris game_id");
+        return Ok(())
     }
 
     let mut data = context.data.write();
@@ -208,24 +200,18 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
             let reply = MessageBuilder::new()
                         .push("Impossible de commencer les paris.\n(En attente de résultat ou paris déjà en cours)")
                         .build();
-            if let Err(why) = message.channel_id.say(&context.http, &reply) {
-                println!("Could not send message: {:?}", why);
-            }
-            return Ok(());
+            send_message(message, &context.http, &reply);
+            return Ok(())
         }
         let reply = MessageBuilder::new()
                     .push("Les paris sont ouverts !")
                     .build();
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
     } else {
         let reply = MessageBuilder::new()
                     .push("Mauvais id de partie")
                     .build();
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
     }
     Ok(())
 }
@@ -238,10 +224,8 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
         arg_ok = false; 0
     });
     if !arg_ok {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage: !fin_paris game_id") {
-            println!("Could not send message: {:?}", why);
-        }
-        return Ok(());
+        send_message(message, &context.http, "Usage: !fin_paris game_id");
+        return Ok(())
     }
 
     let mut data = context.data.write();
@@ -251,9 +235,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
             let reply = MessageBuilder::new()
                         .push("Mauvais id de partie")
                         .build();
-            if let Err(why) = message.channel_id.say(&context.http, &reply) {
-                println!("Could not send message: {:?}", why);
-            }
+            send_message(message, &context.http, &reply);
         }
         let black = &game[game_id].as_ref().unwrap().0;
         let white = &game[game_id].as_ref().unwrap().1;
@@ -266,9 +248,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
                             \nTotal pour {} : {} coquillages \
                             \nTotal pour {} : {} coquillages", black, white, black, game.black_bet, white, game.white_bet))
             .build();
-            if let Err(why) = message.channel_id.say(&context.http, &reply) {
-                println!("Could not send message: {:?}", why);
-            }
+            send_message(message, &context.http, &reply);
         }
     }
 
@@ -290,17 +270,13 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
         args_ok = false; "".into()
     });
     if color != "noir" || color != "blanc" {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage: !resultat game_id couleur (blanc ou noir)") {
-            println!("Could not send message: {:?}", why);
-        }
-        return Ok(());
+        send_message(message, &context.http, "Usage: !resultat game_id couleur (blanc ou noir)");
+        return Ok(())
     }
 
     if !args_ok {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage: !resultat game_id couleur") {
-            println!("Could not send message: {:?}", why);
-        }
-        return Ok(());
+        send_message(message, &context.http, "Usage: !resultat game_id couleur");
+        return Ok(())
     }
 
     let mut data = context.data.write();
@@ -311,14 +287,12 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
             let reply = MessageBuilder::new()
                         .push("Mauvais id de partie")
                         .build();
-            if let Err(why) = message.channel_id.say(&context.http, &reply) {
-                println!("Could not send message: {:?}", why);
-            }
+            send_message(message, &context.http, &reply);
         }
     }
     let state = data.get::<BetStateData>().unwrap().get(&game_id).unwrap();
     if state != &BetState::WaitingResult {
-        return Ok(());
+        return Ok(())
     }
 
     let games = data.get_mut::<GameData>().unwrap();
@@ -355,12 +329,10 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
     }
     let reply = reply.build();
     if reply.as_str() != "" {
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
     }
-    else if let Err(why) = message.channel_id.say(&context.http, "Il n'y a aucun gagnants !") {
-        println!("Could not send message: {:?}", why);
+    else {
+        send_message(message, &context.http, "Il n'y a aucun gagnants !");
     }
     remove_bets_of_game(black.clone(), white.clone(), &conn);
     delete_game(black.clone(), white.clone(), &conn);
@@ -406,9 +378,7 @@ fn state(context: &mut Context, message: &Message, mut args: Args) -> CommandRes
     let reply = MessageBuilder::new()
                     .push(format!("State: {:?}", state))
                     .build();
-    if let Err(why) = message.channel_id.say(&context.http, &reply) {
-        println!("Could not send message: {:?}", why);
-    }
+    send_message(message, &context.http, &reply);
 
     Ok(())
 }
@@ -430,17 +400,13 @@ fn boost(context: &mut Context, message: &Message) -> CommandResult {
             .push(", Tu as gagné 200 coquillages !\n")
             .push(format!("Il te reste {} boosts.", nb_boost_left))
             .build();
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Couldn't send message {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
     } else {
         let reply = MessageBuilder::new()
             .push_bold_safe(&message.author.name)
             .push(", Tu n'as plus de boosts !")
             .build();
-        if let Err(why) = message.channel_id.say(&context.http, &reply) {
-            println!("Couldn't send message {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
     }
     Ok(())
 }
@@ -483,15 +449,11 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         args_ok = false; 0
     });
     if !args_ok || nb_coq <= 0  {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage: !give @name nb_coq (> 0)") {
-            println!("Could not send message: {:?}", why);
-        }
-        return Ok(());
+        send_message(message, &context.http, "Usage: !give @name nb_coq (> 0)");
+        return Ok(())
     } else if nb_coq > 2000 { // limite de 2000 coquillages
-        if let Err(why) = message.channel_id.say(&context.http, "Impossible de donner plus de 2000 coquillages !") {
-            println!("Could not send message: {:?}", why);
-        }
-        return Ok(());
+        send_message(message, &context.http, "Impossible de donner plus de 2000 coquillages !");
+        return Ok(())
     }
 
     //retrieving user to give coq to
@@ -504,16 +466,12 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     }
     // if user to give coq to doesn't exit cancel operation
     if !user_exists(id_s.clone(), &conn) {
-        if let Err(why) = message.channel_id.say(&context.http, format!("L'utilisateur {} n'est pas dans la base de données du bot !", id)) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &format!("L'utilisateur {} n'est pas dans la base de données du bot !", id));
         return Ok(())
     }
 
     if let Err(_) = trade_coq(message.author.id.to_string(), id_s, nb_coq, &conn) {
-        if let Err(why) = message.channel_id.say(&context.http, "Erreur pendant l'échange de coquillages.") {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, "Erreur pendant l'échange de coquillages.");
     } else {
         // feedback
         let reply = MessageBuilder::new()
@@ -521,9 +479,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
             .push(format!(" a donné {} coquillages à ", nb_coq))
             .push_bold_safe(format!("{}", id))
             .build();
-        if let Err(why ) = message.channel_id.say(&context.http, &reply) {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, &reply);
     }
 
     Ok(())
@@ -536,9 +492,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         arg_ok = false; 0
     });
     if !arg_ok {
-        if let Err(why) = message.channel_id.say(&context.http, "Usage : !etat id") {
-            println!("Could not send message: {:?}", why);
-        }
+        send_message(message, &context.http, "Usage : !etat id");
         return Ok(())
     }
 
@@ -546,9 +500,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     let state = match data.get::<BetStateData>().unwrap().get(&id) {
         Some(state) => state,
         None => {
-            if let Err(why) = message.channel_id.say(&context.http, "Je ne connais pas cet id !") {
-                println!("Could not send message: {:?}", why);
-            }
+            send_message(message, &context.http, "Je ne connais pas cet id !");
             return Ok(())
         },
     };
@@ -559,9 +511,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         BetState::NotBetting => {
             reply.push("Les paris n'ont pas commencés.");
             let reply = reply.build();
-            if let Err(why) = message.channel_id.say(&context.http, &reply) {
-                println!("Could not send message: {:?}", why);
-            }
+            send_message(message, &context.http, &reply);
             return Ok(())
         }
     };
@@ -574,9 +524,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     let reply = reply.push(format!("Total pour {} : {}", game.black, game.black_bet))
                     .push(format!("\nTotal pour {} : {}", game.white, game.white_bet))
                     .build();
-    if let Err(why) = message.channel_id.say(&context.http, &reply) {
-        println!("Could not send message: {:?}", why);
-    }
+    send_message(message, &context.http, &reply);
 
     Ok(())
 }
