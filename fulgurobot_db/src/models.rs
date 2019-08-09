@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use diesel::Queryable;
 use diesel::Insertable;
 use crate::schema::*;
@@ -10,6 +11,14 @@ pub struct Bets {
     pub white: String,
     pub bet: i32,
     pub color: String,
+}
+
+impl Display for Bets {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let conn = crate::connect_db();
+        let name = crate::get_user(self.user_id.clone(), &conn).unwrap().name;
+        write!(f, "{} : {}", name, self.bet)
+    }
 }
 
 #[derive(Queryable, Insertable)]

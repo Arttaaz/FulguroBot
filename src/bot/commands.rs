@@ -34,6 +34,11 @@ fn bet_on_color(color: String,
         return
     }
 
+    if nb_coq <= 0 {
+        send_message(message, &context.http, "Il faut parier plus que 0 coquillages !");
+        return
+    }
+
     let data = context.data.read();
     if let Some(game) = data.get::<BetStateData>().unwrap().get(&game_id) {
         match game {
@@ -90,7 +95,6 @@ fn bet_on_color(color: String,
 pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
     //change to embedded message
     let mut reply = MessageBuilder::new();
-    reply.push("Commandes pour parier :\n!noir i x -> parie x coquillages sur noir pour la partie i\n!blanc i x -> parie x coquillages sur blanc pour la partie i\n!coq -> envoie en message privé votre nombre de coquillages");
     if message.author.has_role(&context, message.guild_id.unwrap(), 400_904_374_219_571_201).unwrap() ||
         message.author.has_role(&context, message.guild_id.unwrap(), 291_868_975_015_657_472).unwrap() ||
         message.author.has_role(&context, message.guild_id.unwrap(), 416_986_920_829_321_228).unwrap() {
@@ -100,10 +104,24 @@ pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
                         !resultat game_id couleur -> indique la couleur gagnante de la partie identifié par game_id.");
     }
 
-    let reply = reply.build();
+    message.channel_id.send_message(&context.http, |m| {
+        m.embed(|e| {
+            e.title("Commandes pour utiliser Fulgurobot")
+             .field("!noir i x", "parie x coquillages sur noir pour la partie i", false)
+             .field("!blanc i x", "parie x coquillages sur blanc pour la partie i", false)
+             .field("!coq", "envoie en message privé votre nombre de coquillages", false)
+             .field("!nb_boost", "donne votre nombre de boosts restants", false)
+             .field("!boost", "vous octroie 200 coquillages en cas de besoin !", false);
+            e
+        });
+        m
+    }).expect("Could not send embed message");
 
-    if let Err(why) = message.author.direct_message(&context, |m| { m.content(&reply) }) {
-        println!("error sending message: {:?}", why);
+    let reply = reply.build();
+    if !reply.is_empty() {
+        if let Err(why) = message.author.direct_message(&context, |m| { m.content(&reply) }) {
+            println!("error sending message: {:?}", why);
+        }
     }
     Ok(())
 }
@@ -269,7 +287,7 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
     let color = args.single::<String>().unwrap_or_else (|_| {
         args_ok = false; "".into()
     });
-    if color != "noir" || color != "blanc" {
+    if color != "noir".to_owned() && color != "blanc".to_owned() {
         send_message(message, &context.http, "Usage: !resultat game_id couleur (blanc ou noir)");
         return Ok(())
     }
@@ -486,6 +504,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
 }
 
 #[command]
+// !etat id
 fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let mut arg_ok = true;
     let id = args.single::<usize>().unwrap_or_else(|_| {
@@ -504,27 +523,57 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
             return Ok(())
         },
     };
-    let mut reply = MessageBuilder::new();
-    match state {
-        BetState::Betting => reply.push("Les paris sont ouverts !\n"),
-        BetState::WaitingResult => reply.push("Les paris sont fermés !\n"),
-        BetState::NotBetting => {
-            reply.push("Les paris n'ont pas commencés.");
-            let reply = reply.build();
-            send_message(message, &context.http, &reply);
-            return Ok(())
-        }
-    };
-    let game = match data.get::<GameData>().unwrap()[id].as_ref() {
-        Some(g) => g,
-        None => return Ok(()),
-    };
-    let conn = connect_db();
-    let game = get_game(game.0.clone(), game.1.clone(), &conn).unwrap();
-    let reply = reply.push(format!("Total pour {} : {}", game.black, game.black_bet))
-                    .push(format!("\nTotal pour {} : {}", game.white, game.white_bet))
-                    .build();
-    send_message(message, &context.http, &reply);
 
+    // message.channel_id.send_message(&context.http, |m| {
+    //     m.embed(|e| {
+    //         e.title("what");
+    //         e.field("hello pls wtf", "lskdmfmslkg", false);
+    //         e
+    //     });
+    //     m
+    // }).expect("nani");
+
+    message.channel_id.send_message(&context.http, |m| {
+        m.embed(|e| {
+        e.color((0,0, 255));
+            match state {
+                BetState::Betting => e.title("Les paris sont ouverts !\n"),
+                BetState::WaitingResult => e.title("Les paris sont fermés !\n"),
+                BetState::NotBetting => {
+                    e.title("Les paris n'ont pas commencés.");
+                    return e
+                }
+            };
+            let game = match data.get::<GameData>().unwrap()[id].as_ref() {
+                Some(g) => g,
+                None => { println!("aaah"); return e },
+            };
+            let conn = connect_db();
+            let game = get_game(game.0.clone(), game.1.clone(), &conn).unwrap();
+            e.description(format!("Total pour {} : {}\nTotal pour {} : {}\n",
+                &game.black, game.black_bet, &game.white, game.white_bet));
+
+            let v1 = fulgurobot_db::get_bets_color(game.black.clone(), game.white.clone(), "noir".to_string(), 10, &conn);
+            if !v1.is_empty() {
+                let mut string = "".to_owned();
+                for b in v1 {
+                    string.push_str(&format!("{}\n", b));
+                }
+                e.field("Paris sur noir", string, true);
+            }
+
+            let v2 = fulgurobot_db::get_bets_color(game.black, game.white, "blanc".to_string(), 10, &conn);
+            if !v2.is_empty() {
+                let mut string = "".to_owned();
+                for b in v2 {
+                    string.push_str(&format!("{}\n", b));
+                }
+                e.field("Paris sur blanc", string, true);
+            }
+
+            e
+        });
+        m
+    }).expect("Could not send embed");
     Ok(())
 }

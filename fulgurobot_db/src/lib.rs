@@ -2,6 +2,7 @@
 extern crate diesel;
 extern crate dotenv;
 
+use std::vec::IntoIter;
 use diesel::insert_into;
 use std::env;
 use dotenv::dotenv;
@@ -47,6 +48,15 @@ pub fn user_exists(id: String, conn: &SqliteConnection) -> bool {
         false
     } else {
         true
+    }
+}
+
+pub fn get_user(id: String, conn: &SqliteConnection) -> Option<Users> {
+    match users::dsl::users
+    .filter(users::dsl::id.eq(id))
+    .first(conn) {
+        Ok(u) => Some(u),
+        _ => None,
     }
 }
 
@@ -175,6 +185,19 @@ pub fn get_bet(user_id: String, black: String, white: String, conn: &SqliteConne
 
         Ok(bet) => Some(bet),
         _ => None,
+    }
+}
+
+pub fn get_bets_color(black: String, white: String, color: String, limit: i64, conn: &SqliteConnection) -> Vec<Bets> {
+    match bets::dsl::bets
+        .filter(bets::dsl::black.eq(black))
+        .filter(bets::dsl::white.eq(white))
+        .filter(bets::dsl::color.eq(color))
+        .limit(limit)
+        .order(bets::dsl::bet)
+        .load::<Bets>(conn) {
+            Ok(mut v) => {v.reverse(); v },
+            Err(_) => Vec::new()
     }
 }
 
