@@ -85,7 +85,8 @@ fn bet_on_color(color: String,
     let id = message.author.id.0.to_string();
 
     if !user_exists(id.clone(), &conn) {
-        create_user(id.clone(), message.author.name.clone(), &conn);
+        let user = context.http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
+        create_user(id.clone(), user.nick.unwrap_or_else(|| message.author.name.clone()), &conn);
     }
     let games = data.get::<GameData>().unwrap();
     if game_id >= games.len() || games[game_id].is_none() {
@@ -197,7 +198,7 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
     }
 
     let reply = MessageBuilder::new()
-                .push(format!("La partie de {} vs {} a été créée avec l'id : ", black, white))
+                .push(format!("La partie de **{}** vs **{}** a été créée avec l'id : ", black, white))
                 .push_bold_safe(format!("{}.", index))
                 .build();
     let m = message.channel_id.send_message(&context.http, |m| {
@@ -297,9 +298,9 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
             .push_bold_safe(format!("{}", white))
             .push(" sont finis ! \nTotal pour ")
             .push_bold_safe(format!("{}", black))
-            .push(format!("(noir) : {} coquillages\nTotal pour ", game.black_bet))
+            .push(format!(" (noir) : {} coquillages\nTotal pour ", game.black_bet))
             .push_bold_safe(format!("{}", white))
-            .push(format!("(blanc) : {} coquillages", game.white_bet))
+            .push(format!(" (blanc) : {} coquillages", game.white_bet))
             .build();
             send_message(message, &context.http, &reply);
         }
@@ -370,23 +371,35 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
         _ => (),
     }
     let mut reply = MessageBuilder::new();
-    for user in users {
-        let bet = get_bet(user.id.clone(), black.clone(), white.clone(), &conn).unwrap();
-        let percent = bet.bet / total;
-        let gain = total * percent;
-        add_coq_to_user(user.id.clone(), gain, &conn);
+    if let Err(why) = message.channel_id.send_message(&context.http, |m| {
+        m.embed(|e| {
+            e.color(DISCORD_EMBED_COLOR)
+             .title("Gagnants :");
+            for user in users {
+                let bet = get_bet(user.id.clone(), black.clone(), white.clone(), &conn).unwrap();
+                let percent = bet.bet / total;
+                let gain = total * percent;
+                add_coq_to_user(user.id.clone(), gain, &conn);
 
-        let user = context.http.get_member(DISCORD_GUILD_ID, user.id.parse().unwrap()).unwrap();
-        reply.push_bold_safe(user)
-            .push(format!(" a gagné {} coquillages !\n", gain));
+                let user = context.http.get_member(DISCORD_GUILD_ID, user.id.parse().unwrap()).unwrap();
+                reply.push_bold_safe(user)
+                .push(format!(" a gagné **{}** coquillages !\n", gain));
+            }
+            let reply = reply.build();
+            if reply.as_str() != "" {
+                e.description(&reply);
+            }
+            else {
+                e.description("Il n'y a aucun gagnants !");
+            }
+
+            e
+        });
+        m
+    }) {
+        println!("Couldn't send embed: {:?}", why);
     }
-    let reply = reply.build();
-    if reply.as_str() != "" {
-        send_message(message, &context.http, &reply);
-    }
-    else {
-        send_message(message, &context.http, "Il n'y a aucun gagnants !");
-    }
+
     remove_bets_of_game(black.clone(), white.clone(), &conn);
     delete_game(black.clone(), white.clone(), &conn);
     games[game_id] = None;
@@ -428,14 +441,15 @@ fn coq(context: &mut Context, message: &Message) -> CommandResult {
 
     let conn = connect_db();
     if !user_exists(id.clone(), &conn) {
-        create_user(id.clone(), message.author.name.clone(), &conn);
+        let user = context.http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
+        create_user(id.clone(), user.nick.unwrap_or_else(|| message.author.name.clone()), &conn);
     }
 
     let coq = get_coq_of_user(id, &conn);
 
     let reply = MessageBuilder::new()
                 .push_bold_safe(message.author.name.clone())
-                .push(format!(", vous avez {} coquillages.", coq))
+                .push(format!(", vous avez **{}** coquillages.", coq))
                 .build();
 
     if let Err(why) = message.author.direct_message(&context, |m| {
@@ -470,7 +484,8 @@ fn recharge(context: &mut Context, message: &Message) -> CommandResult {
 
     // add user if he/she doesn't exists
     if !user_exists(message.author.id.to_string(), &conn) {
-        create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
+        let user = context.http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
+        create_user(message.author.id.to_string(), user.nick.unwrap_or_else(|| message.author.name.clone()), &conn);
     }
 
     // update_recharge_user check if user has enough recharge and use one (adds 200 coq to user)
@@ -479,7 +494,7 @@ fn recharge(context: &mut Context, message: &Message) -> CommandResult {
         let reply = MessageBuilder::new()
             .push_bold_safe(&message.author)
             .push(", tu as gagné 200 coquillages !\n")
-            .push(format!("Il te reste {} recharges.", nb_recharge_left))
+            .push(format!("Il te reste **{}** recharges.", nb_recharge_left))
             .build();
         send_message(message, &context.http, &reply);
     } else {
@@ -498,7 +513,8 @@ fn nb_recharge(context: &mut Context, message: &Message) -> CommandResult {
     let conn = connect_db();
     // add user if he/she doesn't exists
     if !user_exists(message.author.id.to_string(), &conn) {
-        create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
+        let user = context.http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
+        create_user(message.author.id.to_string(), user.nick.unwrap_or_else(|| message.author.name.clone()), &conn);
     }
 
     let nb_recharge = match get_recharge_user(message.author.id.to_string(), &conn) {
@@ -509,7 +525,7 @@ fn nb_recharge(context: &mut Context, message: &Message) -> CommandResult {
     // feedback
     let reply = MessageBuilder::new()
         .push_bold_safe(&message.author)
-        .push(format!(", il te reste : {} recharges !", nb_recharge))
+        .push(format!(", il te reste : **{}** recharges !", nb_recharge))
         .build();
     if let Err(why) = message.author.direct_message(&context, |m| {
             m.content(&reply)
@@ -545,7 +561,8 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
 
     let conn = connect_db();
     if !user_exists(message.author.id.to_string(), &conn) {
-        create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
+        let user = context.http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
+        create_user(message.author.id.to_string(), user.nick.unwrap_or_else(|| message.author.name.clone()), &conn);
     }
     // if user to give coq to doesn't exit cancel operation
     if !user_exists(id_s.clone(), &conn) {
@@ -607,7 +624,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
             };
             let conn = connect_db();
             let game = get_game(game.0.clone(), game.1.clone(), &conn).unwrap();
-            e.description(format!("Total pour {} (noir) : {}\nTotal pour {} (blanc) : {}\n",
+            e.description(format!("Total pour **{}** (noir) : {}\nTotal pour **{}** (blanc) : {}\n",
                 &game.black, game.black_bet, &game.white, game.white_bet));
 
             let v1 = fulgurobot_db::get_bets_color(game.black.clone(), game.white.clone(), "noir".to_string(), 10, &conn);
@@ -645,7 +662,8 @@ fn boost(context: &mut Context, message: &Message) -> CommandResult {
 
     // add user if he/she doesn't exists
     if !user_exists(id.clone(), &conn) {
-        create_user(id.clone(), message.author.name.clone(), &conn);
+        let user = context.http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
+        create_user(id.clone(), user.nick.unwrap_or_else(|| message.author.name.clone()), &conn);
     }
 
     boost_user(id, &conn);
