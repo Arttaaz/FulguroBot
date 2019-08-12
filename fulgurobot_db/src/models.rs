@@ -37,5 +37,5 @@ pub struct Users {
     pub id: String,
     pub name: String,
     pub nb_coq: i32,
-    pub nb_boost: i32,
+    pub nb_recharge: i32,
 }

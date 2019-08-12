@@ -2,7 +2,6 @@
 extern crate diesel;
 extern crate dotenv;
 
-use std::vec::IntoIter;
 use diesel::insert_into;
 use std::env;
 use dotenv::dotenv;
@@ -15,8 +14,8 @@ use crate::models::*;
 use crate::schema::*;
 
 const NB_BASE_COQ : i32 = 1000;
-const NB_BASE_BOOST: i32 = 5;
-const NB_COQ_BOOST: i32 = 500;
+const NB_BASE_RECHARGE: i32 = 5;
+const NB_COQ_RECHARGE: i32 = 200;
 
 
 pub fn connect_db() -> SqliteConnection {
@@ -35,7 +34,7 @@ pub fn create_user(id: String, name: String, conn: &SqliteConnection) {
         id,
         name,
         nb_coq: NB_BASE_COQ,
-        nb_boost: NB_BASE_BOOST,
+        nb_recharge: NB_BASE_RECHARGE,
     };
     insert_into(users::dsl::users).values(user).execute(conn).expect("Failed to add user");
 }
@@ -86,28 +85,32 @@ pub fn get_coq_of_user(id: String, conn: &SqliteConnection) -> i32 {
     }
 }
 
-pub fn get_boost_user(id: String, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
-    users::dsl::users.select(users::dsl::nb_boost).filter(users::dsl::id.eq(id)).first::<i32>(conn)
+pub fn get_recharge_user(id: String, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
+    users::dsl::users.select(users::dsl::nb_recharge).filter(users::dsl::id.eq(id)).first::<i32>(conn)
 }
 
-pub fn update_boost_user(id: String, modifier: i32, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
-    // if removing boost and removing more than one cancel operation
+pub fn boost_user(id: String, conn:&SqliteConnection) {
+    add_coq_to_user(id, NB_COQ_RECHARGE, conn);
+}
+
+pub fn update_recharge_user(id: String, modifier: i32, conn: &SqliteConnection) -> Result<i32, diesel::result::Error> {
+    // if removing recharge and removing more than one cancel operation
     if modifier < 0 && modifier != -1 {
         return Err(diesel::result::Error::RollbackTransaction)
     }
 
-    let nb_boost = get_boost_user(id.clone(), conn)?;
+    let nb_recharge = get_recharge_user(id.clone(), conn)?;
     conn.transaction::<_, diesel::result::Error,_>(|| {
-        if nb_boost > 0 {
-            diesel::update(users::dsl::users.find(id.clone())).set(users::dsl::nb_boost.eq(nb_boost+modifier)).execute(conn)
-            .expect("Could not update nb_boost");
-            add_coq_to_user(id, NB_COQ_BOOST, conn);
+        if nb_recharge > 0 {
+            diesel::update(users::dsl::users.find(id.clone())).set(users::dsl::nb_recharge.eq(nb_recharge+modifier)).execute(conn)
+            .expect("Could not update nb_recharge");
+            add_coq_to_user(id, NB_COQ_RECHARGE, conn);
             Ok(())
         } else {
             Err(diesel::result::Error::RollbackTransaction)
         }
     })?;
-    Ok(nb_boost+modifier)
+    Ok(nb_recharge+modifier)
 }
 
 pub fn trade_coq(id_src: String, id_dst: String, nb_coq: i32, conn: &SqliteConnection) -> Result<(),diesel::result::Error> {
@@ -298,7 +301,7 @@ fn test_get_users_bet_color() {
         id: 0.to_string(),
         name: "Romain Fecher".to_string(),
         nb_coq: 1000,
-        nb_boost: 5,
+        nb_recharge: 5,
     }];
 
     assert_eq!(get_users_bet_color("gne".to_string(), "gne".to_string(), "blanc".to_string(), &conn).unwrap(), expected_users);

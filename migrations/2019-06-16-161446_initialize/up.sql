@@ -2,7 +2,7 @@ CREATE TABLE users(
   id        TEXT NOT NULL PRIMARY KEY,
   name      TEXT NOT NULL,
   nb_coq    INT NOT NULL,
-  nb_boost  INT NOT NULL
+  nb_recharge  INT NOT NULL
 );
 
 CREATE TABLE game (

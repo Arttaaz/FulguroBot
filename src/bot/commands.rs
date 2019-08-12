@@ -1,3 +1,8 @@
+use crate::bot::consts::DISCORD_GUILD_ID;
+use crate::bot::consts::DISCORD_ROLE_ANIMATEUR;
+use crate::bot::consts::DISCORD_ROLE_TEAM_CODEUR;
+use crate::bot::consts::DISCORD_ROLE_MODERATION;
+use crate::bot::consts::DISCORD_EMBED_COLOR;
 use fulgurobot_db::*;
 use serenity::{
     client::Context,
@@ -12,7 +17,29 @@ use super::{
 };
 
 fn send_message(message: &Message, http: &Http, reply: &str) {
-    if let Err(why) = message.channel_id.say(http, reply) {
+    if let Err(why) = message.channel_id.send_message(http, |m| {
+        m.embed(|e| {
+            e.title(reply)
+             .color(DISCORD_EMBED_COLOR);
+            e
+        });
+        m
+    }) {
+        println!("Could not send message: {:?}", why);
+    }
+}
+
+fn send_error(message: &Message, http: &Http, reply: &str) {
+    let user = http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
+    if let Err(why) = message.channel_id.send_message(http, |m| {
+        m.embed(|e| {
+            e.title(reply)
+             .description(user)
+             .color(DISCORD_EMBED_COLOR);
+            e
+        });
+        m
+    }) {
         println!("Could not send message: {:?}", why);
     }
 }
@@ -30,12 +57,12 @@ fn bet_on_color(color: String,
         args_ok = false; 0
     });
     if !args_ok {
-        send_message(message, &context.http, &format!("Usage: !{} game_id nb_coq", &color));
+        send_error(message, &context.http, &format!("Usage: !{} game_id nb_coq", &color));
         return
     }
 
     if nb_coq <= 0 {
-        send_message(message, &context.http, "Il faut parier plus que 0 coquillages !");
+        send_error(message, &context.http, "Il faut parier plus que 0 coquillages !");
         return
     }
 
@@ -43,11 +70,11 @@ fn bet_on_color(color: String,
     if let Some(game) = data.get::<BetStateData>().unwrap().get(&game_id) {
         match game {
             BetState::NotBetting    => {
-                send_message(message, &context.http, "Les paris n'ont pas démarré.");
+                send_error(message, &context.http, "Les paris n'ont pas démarré.");
                 return
             },
             BetState::WaitingResult => {
-                send_message(message, &context.http, "Les paris sont finis !");
+                send_error(message, &context.http, "Les paris sont finis !");
                 return
             },
             _ => ()
@@ -61,12 +88,8 @@ fn bet_on_color(color: String,
         create_user(id.clone(), message.author.name.clone(), &conn);
     }
     let games = data.get::<GameData>().unwrap();
-    if game_id >= games.len() || games[game_id] == None {
-        let reply = MessageBuilder::new()
-                    .push_bold_safe(message.author.name.clone())
-                    .push(", Cette partie n'existe pas.")
-                    .build();
-        send_message(message, &context.http, &reply);
+    if game_id >= games.len() || games[game_id].is_none() {
+        send_error(message, &context.http, "Cette partie n'existe pas");
         return
     }
     let black = data.get::<GameData>().unwrap()[game_id].as_ref().unwrap().0.clone();
@@ -81,45 +104,45 @@ fn bet_on_color(color: String,
     if coq - nb_coq > 0 {
         create_bet(id, black, white, nb_coq, color, &conn);
     } else {
-        let reply = MessageBuilder::new()
-                    .push_bold_safe(message.author.name.clone())
-                    .push(", Tu n'as pas assez de coquillages.")
-                    .build();
-        send_message(message, &context.http, &reply);
+        send_error(message, &context.http, "Tu n'as pas assez de coquillages.");
     }
 }
 
 
 #[command]
+#[bucket = "basic"]
 // !fulgurobot
 pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
-    //change to embedded message
-    let mut reply = MessageBuilder::new();
-    if message.author.has_role(&context, message.guild_id.unwrap(), 400_904_374_219_571_201).unwrap() ||
-        message.author.has_role(&context, message.guild_id.unwrap(), 291_868_975_015_657_472).unwrap() ||
-        message.author.has_role(&context, message.guild_id.unwrap(), 416_986_920_829_321_228).unwrap() {
-            reply.push("\n!create_game noir blanc -> créé une partie pour parier et lui donne un id pour les autre commandes.
-                        !debut_paris game_id -> démarre les paris pour la partie identifié par game_id.
-                        !fin_paris game_id -> bloque les paris pour la partie identifié par game_id.
-                        !resultat game_id couleur -> indique la couleur gagnante de la partie identifié par game_id.");
-    }
-
     message.channel_id.send_message(&context.http, |m| {
         m.embed(|e| {
             e.title("Commandes pour utiliser Fulgurobot")
+             .color(DISCORD_EMBED_COLOR)
+             .description("i correspond à l'identifiant de la partie donné par le bot")
              .field("!noir i x", "parie x coquillages sur noir pour la partie i", false)
              .field("!blanc i x", "parie x coquillages sur blanc pour la partie i", false)
              .field("!coq", "envoie en message privé votre nombre de coquillages", false)
-             .field("!nb_boost", "donne votre nombre de boosts restants", false)
-             .field("!boost", "vous octroie 200 coquillages en cas de besoin !", false);
+             .field("!nb_recharge", "donne votre nombre de recharges restants", false)
+             .field("!recharge", "vous octroie 200 coquillages en cas de besoin ! (5 utilisations par personne)", false);
             e
         });
         m
     }).expect("Could not send embed message");
 
-    let reply = reply.build();
-    if !reply.is_empty() {
-        if let Err(why) = message.author.direct_message(&context, |m| { m.content(&reply) }) {
+    if message.author.has_role(&context, message.guild_id.unwrap(), DISCORD_ROLE_ANIMATEUR).unwrap() ||
+    message.author.has_role(&context, message.guild_id.unwrap(), DISCORD_ROLE_MODERATION).unwrap() ||
+    message.author.has_role(&context, message.guild_id.unwrap(), DISCORD_ROLE_TEAM_CODEUR).unwrap() {
+        if let Err(why) = message.author.direct_message(&context, |m| {
+            m.embed(|e| {
+                e.title("Commandes pour controler Fulgurobot")
+                 .color(DISCORD_EMBED_COLOR)
+                 .field("!create_game noir blanc", "créé une partie pour parier et lui donne un id pour les autre commandes.", false)
+                 .field("!debut_paris game_id", "démarre les paris pour la partie identifié par game_id.", false)
+                 .field("!fin_paris game_id", "bloque les paris pour la partie identifié par game_id.", false)
+                 .field("!resultat game_id couleur", "indique la couleur gagnante de la partie identifié par game_id.", false);
+                e
+            });
+            m
+        }) {
             println!("error sending message: {:?}", why);
         }
     }
@@ -128,6 +151,7 @@ pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
 
 // !noir game_id bet
 #[command]
+#[bucket = "basic"]
 fn noir(context: &mut Context, message: &Message, args: Args) -> CommandResult {
     bet_on_color("noir".to_string(), context, message, args);
     Ok(())
@@ -135,6 +159,7 @@ fn noir(context: &mut Context, message: &Message, args: Args) -> CommandResult {
 
 // !blanc game_id bet
 #[command]
+#[bucket = "basic"]
 fn blanc(context: &mut Context, message: &Message, args: Args) -> CommandResult{
     bet_on_color("blanc".to_string(), context, message, args);
     Ok(())
@@ -142,6 +167,7 @@ fn blanc(context: &mut Context, message: &Message, args: Args) -> CommandResult{
 
 // !create_game black white
 #[command]
+#[bucket = "basic"]
 fn create_game(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let mut args_ok: bool = true;
     let black = args.single::<String>().unwrap_or_else(|_| {
@@ -151,7 +177,7 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
         args_ok = false; "".into()
     });
     if !args_ok {
-        send_message(message, &context.http, "Usage: !create_game noir blanc");
+        send_error(message, &context.http, "usage: !create_game noir blanc");
         return Ok(())
     }
 
@@ -164,24 +190,24 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
     let games = data.get_mut::<GameData>().unwrap();
     let mut index = games.len();
     for (i, e) in games.iter().enumerate() {
-        if *e == None {
+        if e.is_none()  {
             index = i;
             break;
         }
     }
-    if index != games.len() {
-        games[index] = Some((black.clone(), white.clone()));
-    } else {
-        games.push(Some((black.clone(), white.clone())));
-    }
-    let state = data.get_mut::<BetStateData>().unwrap();
-    state.insert(index, BetState::NotBetting);
 
     let reply = MessageBuilder::new()
                 .push(format!("La partie de {} vs {} a été créée avec l'id : ", black, white))
                 .push_bold_safe(format!("{}.", index))
                 .build();
-    let m = message.channel_id.say(&context.http, &reply);
+    let m = message.channel_id.send_message(&context.http, |m| {
+        m.embed(|e| {
+            e.title(&reply)
+             .color(DISCORD_EMBED_COLOR);
+            e
+        });
+        m
+    });
     if let Err(why) = m {
         println!("Could not send message: {:?}", why);
         return Ok(());
@@ -190,11 +216,19 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
     if let Err(why) = m.channel_id.pin(&context.http, &m) {
         println!("Could not pin message: {:?}", why);
     }
+    if index != games.len() {
+        games[index] = Some((black.clone(), white.clone(), Some(m)));
+    } else {
+        games.push(Some((black.clone(), white.clone(), Some(m))));
+    }
+    let state = data.get_mut::<BetStateData>().unwrap();
+    state.insert(index, BetState::NotBetting);
     Ok(())
 }
 
 // !debut_paris game_id
 #[command]
+#[bucket = "basic"]
 fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let mut arg_ok : bool = true;
     let game_id = args.single::<usize>().unwrap_or_else(|_| {
@@ -202,7 +236,7 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
     });
 
     if !arg_ok {
-        send_message(message, &context.http, "Usage: !debut_paris game_id");
+        send_error(message, &context.http, "Usage: !debut_paris game_id");
         return Ok(())
     }
 
@@ -214,11 +248,11 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
             *state = BetState::Betting;
             let conn = connect_db();
             update_game_state(game.0, game.1, BetState::Betting.into(), &conn);
+        } else if state == &BetState::Betting {
+            send_error(message, &context.http, "Les paris sont déjà en cours !");
+            return Ok(())
         } else {
-            let reply = MessageBuilder::new()
-                        .push("Impossible de commencer les paris.\n(En attente de résultat ou paris déjà en cours)")
-                        .build();
-            send_message(message, &context.http, &reply);
+            send_error(message, &context.http, "La partie est en attente du résultat");
             return Ok(())
         }
         let reply = MessageBuilder::new()
@@ -226,15 +260,13 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
                     .build();
         send_message(message, &context.http, &reply);
     } else {
-        let reply = MessageBuilder::new()
-                    .push("Mauvais id de partie")
-                    .build();
-        send_message(message, &context.http, &reply);
+        send_error(message, &context.http, "Mauvais id de partie");
     }
     Ok(())
 }
 
 #[command]
+#[bucket = "basic"]
 // !fin_paris game_id
 fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let mut arg_ok : bool = true;
@@ -242,18 +274,15 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
         arg_ok = false; 0
     });
     if !arg_ok {
-        send_message(message, &context.http, "Usage: !fin_paris game_id");
+        send_error(message, &context.http, "Usage: !fin_paris game_id");
         return Ok(())
     }
 
     let mut data = context.data.write();
     {
         let game = data.get::<GameData>().unwrap();
-        if game_id >= game.len() || game[game_id] == None {
-            let reply = MessageBuilder::new()
-                        .push("Mauvais id de partie")
-                        .build();
-            send_message(message, &context.http, &reply);
+        if game_id >= game.len() || game[game_id].is_none() {
+            send_error(message, &context.http, "Mauvais id de partie");
         }
         let black = &game[game_id].as_ref().unwrap().0;
         let white = &game[game_id].as_ref().unwrap().1;
@@ -262,9 +291,15 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
             update_game_state(black.clone(), white.clone(), BetState::WaitingResult.into(), &conn);
             let game = fulgurobot_db::get_game(black.clone(), white.clone(), &conn).unwrap();
             let reply = MessageBuilder::new()
-            .push(format!("Les paris de la partie {} vs {} sont finis ! \
-                            \nTotal pour {} : {} coquillages \
-                            \nTotal pour {} : {} coquillages", black, white, black, game.black_bet, white, game.white_bet))
+            .push("Les paris de la partie ")
+            .push_bold_safe(format!("{}", black))
+            .push(" vs ")
+            .push_bold_safe(format!("{}", white))
+            .push(" sont finis ! \nTotal pour ")
+            .push_bold_safe(format!("{}", black))
+            .push(format!("(noir) : {} coquillages\nTotal pour ", game.black_bet))
+            .push_bold_safe(format!("{}", white))
+            .push(format!("(blanc) : {} coquillages", game.white_bet))
             .build();
             send_message(message, &context.http, &reply);
         }
@@ -278,6 +313,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
 }
 
 #[command]
+#[bucket = "basic"]
 // !resultat game_id color
 fn resultat(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let mut args_ok : bool = true;
@@ -288,12 +324,12 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
         args_ok = false; "".into()
     });
     if color != "noir".to_owned() && color != "blanc".to_owned() {
-        send_message(message, &context.http, "Usage: !resultat game_id couleur (blanc ou noir)");
+        send_error(message, &context.http, "Usage: !resultat game_id couleur (blanc ou noir)");
         return Ok(())
     }
 
     if !args_ok {
-        send_message(message, &context.http, "Usage: !resultat game_id couleur");
+        send_error(message, &context.http, "Usage: !resultat game_id couleur");
         return Ok(())
     }
 
@@ -301,23 +337,22 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
 
     {
         let games = data.get_mut::<GameData>().unwrap();
-        if game_id >= games.len() || games[game_id] == None {
-            let reply = MessageBuilder::new()
-                        .push("Mauvais id de partie")
-                        .build();
-            send_message(message, &context.http, &reply);
+        if game_id >= games.len() || games[game_id].is_none() {
+            send_error(message, &context.http, "Mauvais id de partie");
+            return Ok(())
         }
     }
     let state = data.get::<BetStateData>().unwrap().get(&game_id).unwrap();
     if state != &BetState::WaitingResult {
+        send_error(message, &context.http, "Les paris n'ont même pas encore commencé !");
         return Ok(())
     }
 
     let games = data.get_mut::<GameData>().unwrap();
 
     let conn = connect_db();
-    let black = &games[game_id].as_ref().unwrap().0;
-    let white = &games[game_id].as_ref().unwrap().1;
+    let (black, white, pin) = &games[game_id].as_ref().unwrap();
+    let pin = pin.clone();
     let game = get_game(black.clone(), white.clone(), &conn).unwrap();
 
     let users = match get_users_bet_color(black.clone(), white.clone(), color.clone(), &conn) {
@@ -339,10 +374,10 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
         let bet = get_bet(user.id.clone(), black.clone(), white.clone(), &conn).unwrap();
         let percent = bet.bet / total;
         let gain = total * percent;
-        add_coq_to_user(user.id, gain, &conn);
+        add_coq_to_user(user.id.clone(), gain, &conn);
 
-
-        reply.push_bold_safe(user.name)
+        let user = context.http.get_member(DISCORD_GUILD_ID, user.id.parse().unwrap()).unwrap();
+        reply.push_bold_safe(user)
             .push(format!(" a gagné {} coquillages !\n", gain));
     }
     let reply = reply.build();
@@ -355,12 +390,38 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
     remove_bets_of_game(black.clone(), white.clone(), &conn);
     delete_game(black.clone(), white.clone(), &conn);
     games[game_id] = None;
+
+    // if game has a pinned message, unpin it
+    if pin.is_some() {
+        if let Err(why) = message.channel_id.unpin(&context.http, pin.as_ref().unwrap()) {
+            println!("Couldn't unpin message : {:?}", why);
+        }
+    } else {
+        // check if there is no more game running
+        let mut is_none = true;
+        for g in &*games {
+            if g.is_some() {
+                is_none = false;
+                break
+            }
+        }
+        // if no more games are running, delete all pins
+        // (it deletes for example restored context pin)
+        if is_none {
+            for p in message.channel_id.pins(&context.http).unwrap() {
+                if let Err(why) = message.channel_id.unpin(&context.http, p) {
+                    println!("Could not unpin message: {:?}", why);
+                }
+            }
+        }
+    }
     data.get_mut::<BetStateData>().unwrap().remove(&game_id);
 
     Ok(())
 }
 
 #[command]
+#[bucket = "basic"]
 // !coq
 fn coq(context: &mut Context, message: &Message) -> CommandResult {
     let id = message.author.id.to_string();
@@ -387,6 +448,7 @@ fn coq(context: &mut Context, message: &Message) -> CommandResult {
 }
 
 #[command]
+#[bucket = "basic"]
 fn state(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let id = args.single::<usize>().unwrap();
 
@@ -402,7 +464,8 @@ fn state(context: &mut Context, message: &Message, mut args: Args) -> CommandRes
 }
 
 #[command]
-fn boost(context: &mut Context, message: &Message) -> CommandResult {
+#[bucket = "basic"]
+fn recharge(context: &mut Context, message: &Message) -> CommandResult {
     let conn = connect_db();
 
     // add user if he/she doesn't exists
@@ -410,19 +473,19 @@ fn boost(context: &mut Context, message: &Message) -> CommandResult {
         create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
     }
 
-    // update_boost_user check if user has enough boost and use one (adds 200 coq to user)
-    if let Ok(nb_boost_left) = update_boost_user(message.author.id.to_string(), -1, &conn) {
+    // update_recharge_user check if user has enough recharge and use one (adds 200 coq to user)
+    if let Ok(nb_recharge_left) = update_recharge_user(message.author.id.to_string(), -1, &conn) {
         //feedback
         let reply = MessageBuilder::new()
-            .push_bold_safe(&message.author.name)
-            .push(", Tu as gagné 200 coquillages !\n")
-            .push(format!("Il te reste {} boosts.", nb_boost_left))
+            .push_bold_safe(&message.author)
+            .push(", tu as gagné 200 coquillages !\n")
+            .push(format!("Il te reste {} recharges.", nb_recharge_left))
             .build();
         send_message(message, &context.http, &reply);
     } else {
         let reply = MessageBuilder::new()
-            .push_bold_safe(&message.author.name)
-            .push(", Tu n'as plus de boosts !")
+            .push_bold_safe(&message.author)
+            .push(", tu n'as plus de recharges !")
             .build();
         send_message(message, &context.http, &reply);
     }
@@ -430,22 +493,23 @@ fn boost(context: &mut Context, message: &Message) -> CommandResult {
 }
 
 #[command]
-fn nb_boost(context: &mut Context, message: &Message) -> CommandResult {
+#[bucket = "basic"]
+fn nb_recharge(context: &mut Context, message: &Message) -> CommandResult {
     let conn = connect_db();
     // add user if he/she doesn't exists
     if !user_exists(message.author.id.to_string(), &conn) {
         create_user(message.author.id.to_string(), message.author.name.clone(), &conn);
     }
 
-    let nb_boost = match get_boost_user(message.author.id.to_string(), &conn) {
+    let nb_recharge = match get_recharge_user(message.author.id.to_string(), &conn) {
         Ok(n) => n,
         Err(e) => { println!("Error reading database: {:?}", e); return Ok(()) }
     };
 
     // feedback
     let reply = MessageBuilder::new()
-        .push_bold_safe(&message.author.name)
-        .push(format!(", Il te reste : {} boosts !", nb_boost))
+        .push_bold_safe(&message.author)
+        .push(format!(", il te reste : {} recharges !", nb_recharge))
         .build();
     if let Err(why) = message.author.direct_message(&context, |m| {
             m.content(&reply)
@@ -456,6 +520,7 @@ fn nb_boost(context: &mut Context, message: &Message) -> CommandResult {
 }
 
 #[command]
+#[bucket = "basic"]
 // !give user_id nb_coq
 fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     // checking args are correct
@@ -467,10 +532,10 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         args_ok = false; 0
     });
     if !args_ok || nb_coq <= 0  {
-        send_message(message, &context.http, "Usage: !give @name nb_coq (> 0)");
+        send_error(message, &context.http, "Usage: !give @name nb_coq (> 0)");
         return Ok(())
     } else if nb_coq > 2000 { // limite de 2000 coquillages
-        send_message(message, &context.http, "Impossible de donner plus de 2000 coquillages !");
+        send_error(message, &context.http, "Impossible de donner plus de 2000 coquillages !");
         return Ok(())
     }
 
@@ -484,12 +549,12 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     }
     // if user to give coq to doesn't exit cancel operation
     if !user_exists(id_s.clone(), &conn) {
-        send_message(message, &context.http, &format!("L'utilisateur {} n'est pas dans la base de données du bot !", id));
+        send_error(message, &context.http, &format!("L'utilisateur {} n'est pas dans la base de données du bot !", id));
         return Ok(())
     }
 
     if let Err(_) = trade_coq(message.author.id.to_string(), id_s, nb_coq, &conn) {
-        send_message(message, &context.http, "Erreur pendant l'échange de coquillages.");
+        send_message(message, &context.http, "Erreur pendant l'échange de coquillages. L'échange est annulé");
     } else {
         // feedback
         let reply = MessageBuilder::new()
@@ -504,6 +569,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
 }
 
 #[command]
+#[bucket = "basic"]
 // !etat id
 fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let mut arg_ok = true;
@@ -511,7 +577,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         arg_ok = false; 0
     });
     if !arg_ok {
-        send_message(message, &context.http, "Usage : !etat id");
+        send_error(message, &context.http, "Usage : !etat id");
         return Ok(())
     }
 
@@ -519,23 +585,14 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     let state = match data.get::<BetStateData>().unwrap().get(&id) {
         Some(state) => state,
         None => {
-            send_message(message, &context.http, "Je ne connais pas cet id !");
+            send_error(message, &context.http, "Je ne connais pas cet id !");
             return Ok(())
         },
     };
 
-    // message.channel_id.send_message(&context.http, |m| {
-    //     m.embed(|e| {
-    //         e.title("what");
-    //         e.field("hello pls wtf", "lskdmfmslkg", false);
-    //         e
-    //     });
-    //     m
-    // }).expect("nani");
-
     message.channel_id.send_message(&context.http, |m| {
         m.embed(|e| {
-        e.color((0,0, 255));
+        e.color(DISCORD_EMBED_COLOR);
             match state {
                 BetState::Betting => e.title("Les paris sont ouverts !\n"),
                 BetState::WaitingResult => e.title("Les paris sont fermés !\n"),
@@ -550,7 +607,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
             };
             let conn = connect_db();
             let game = get_game(game.0.clone(), game.1.clone(), &conn).unwrap();
-            e.description(format!("Total pour {} : {}\nTotal pour {} : {}\n",
+            e.description(format!("Total pour {} (noir) : {}\nTotal pour {} (blanc) : {}\n",
                 &game.black, game.black_bet, &game.white, game.white_bet));
 
             let v1 = fulgurobot_db::get_bets_color(game.black.clone(), game.white.clone(), "noir".to_string(), 10, &conn);
@@ -575,5 +632,27 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         });
         m
     }).expect("Could not send embed");
+    Ok(())
+}
+
+#[command]
+#[bucket = "basic"]
+// !boost @user
+fn boost(context: &mut Context, message: &Message) -> CommandResult {
+    let user = message.mentions.first().unwrap();
+    let id = user.id.to_string();
+    let conn = connect_db();
+
+    // add user if he/she doesn't exists
+    if !user_exists(id.clone(), &conn) {
+        create_user(id.clone(), message.author.name.clone(), &conn);
+    }
+
+    boost_user(id, &conn);
+    let reply = MessageBuilder::new()
+        .push_bold_safe(&user)
+        .push(", tu as gagné 200 coquillages !\n")
+        .build();
+    send_message(message, &context.http, &reply);
     Ok(())
 }
