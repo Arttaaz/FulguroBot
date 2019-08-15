@@ -1,8 +1,12 @@
+use std::collections::HashMap;
 use crate::bot::consts::DISCORD_GUILD_ID;
 use crate::bot::consts::DISCORD_ROLE_ANIMATEUR;
 use crate::bot::consts::DISCORD_ROLE_TEAM_CODEUR;
 use crate::bot::consts::DISCORD_ROLE_MODERATION;
 use crate::bot::consts::DISCORD_EMBED_COLOR;
+use crate::strings::*;
+use crate::locale;
+
 use fulgurobot_db::*;
 use serenity::{
     client::Context,
@@ -45,6 +49,7 @@ fn send_error(message: &Message, http: &Http, reply: &str) {
 }
 
 fn bet_on_color(color: String,
+                l: &HashMap<&str, &str>,
                 context: &mut serenity::prelude::Context,
                 message: &Message ,
                 mut args: serenity::framework::standard::Args) {
@@ -57,12 +62,12 @@ fn bet_on_color(color: String,
         args_ok = false; 0
     });
     if !args_ok {
-        send_error(message, &context.http, &format!("Usage: !{} game_id nb_coq", &color));
+        send_error(message, &context.http, &format!("{}{}{}", locale!(l, "bet_0"), &color, locale!(l, "bet_1")));
         return
     }
 
     if nb_coq <= 0 {
-        send_error(message, &context.http, "Il faut parier plus que 0 coquillages !");
+        send_error(message, &context.http, locale!(l, "bet_2"));
         return
     }
 
@@ -70,11 +75,11 @@ fn bet_on_color(color: String,
     if let Some(game) = data.get::<BetStateData>().unwrap().get(&game_id) {
         match game {
             BetState::NotBetting    => {
-                send_error(message, &context.http, "Les paris n'ont pas démarré.");
+                send_error(message, &context.http, locale!(l, "bet_3"));
                 return
             },
             BetState::WaitingResult => {
-                send_error(message, &context.http, "Les paris sont finis !");
+                send_error(message, &context.http, locale!(l, "bet_4"));
                 return
             },
             _ => ()
@@ -90,7 +95,7 @@ fn bet_on_color(color: String,
     }
     let games = data.get::<GameData>().unwrap();
     if game_id >= games.len() || games[game_id].is_none() {
-        send_error(message, &context.http, "Cette partie n'existe pas");
+        send_error(message, &context.http, locale!(l, "bet_5"));
         return
     }
     let black = data.get::<GameData>().unwrap()[game_id].as_ref().unwrap().0.clone();
@@ -105,25 +110,22 @@ fn bet_on_color(color: String,
     if coq - nb_coq > 0 {
         create_bet(id, black, white, nb_coq, color, &conn);
     } else {
-        send_error(message, &context.http, "Tu n'as pas assez de coquillages.");
+        send_error(message, &context.http, locale!(l, "bet_6"));
     }
 }
 
 
-#[command]
-#[bucket = "basic"]
-// !fulgurobot
-pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
+fn fulgurobot_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Message) -> CommandResult {
     message.channel_id.send_message(&context.http, |m| {
         m.embed(|e| {
-            e.title("Commandes pour utiliser Fulgurobot")
+            e.title(locale!(l, "fulgurobot_0"))
              .color(DISCORD_EMBED_COLOR)
-             .description("i correspond à l'identifiant de la partie donné par le bot")
-             .field("!noir i x", "parie x coquillages sur noir pour la partie i", false)
-             .field("!blanc i x", "parie x coquillages sur blanc pour la partie i", false)
-             .field("!coq", "envoie en message privé votre nombre de coquillages", false)
-             .field("!nb_recharge", "donne votre nombre de recharges restants", false)
-             .field("!recharge", "vous octroie 200 coquillages en cas de besoin ! (5 utilisations par personne)", false);
+             .description(locale!(l, "fulgurobot_1"))
+             .field(locale!(l, "fulgurobot_2"), locale!(l, "fulgurobot_3"), false)
+             .field(locale!(l, "fulgurobot_4"), locale!(l, "fulgurobot_5"), false)
+             .field(locale!(l, "fulgurobot_6"), locale!(l, "fulgurobot_7"), false)
+             .field(locale!(l, "fulgurobot_8"), locale!(l, "fulgurobot_9"), false)
+             .field(locale!(l, "fulgurobot_10"), locale!(l, "fulgurobot_11"), false);
             e
         });
         m
@@ -150,11 +152,24 @@ pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
     Ok(())
 }
 
+#[command]
+#[bucket = "basic"]
+// !fulgurobot
+pub fn fulgurobot(context: &mut Context, message: &Message) -> CommandResult {
+    fulgurobot_worker(&FRENCH, context, message)
+}
+
+#[command]
+#[bucket = "basic"]
+pub fn help(context: &mut Context, message: &Message) -> CommandResult {
+    fulgurobot_worker(&ENGLISH, context, message)
+}
+
 // !noir game_id bet
 #[command]
 #[bucket = "basic"]
 fn noir(context: &mut Context, message: &Message, args: Args) -> CommandResult {
-    bet_on_color("noir".to_string(), context, message, args);
+    bet_on_color("noir".to_string(), &FRENCH, context, message, args);
     Ok(())
 }
 
@@ -162,7 +177,23 @@ fn noir(context: &mut Context, message: &Message, args: Args) -> CommandResult {
 #[command]
 #[bucket = "basic"]
 fn blanc(context: &mut Context, message: &Message, args: Args) -> CommandResult{
-    bet_on_color("blanc".to_string(), context, message, args);
+    bet_on_color("blanc".to_string(), &FRENCH, context, message, args);
+    Ok(())
+}
+
+// !noir game_id bet
+#[command]
+#[bucket = "basic"]
+fn black(context: &mut Context, message: &Message, args: Args) -> CommandResult {
+    bet_on_color("noir".to_string(), &ENGLISH, context, message, args);
+    Ok(())
+}
+
+// !blanc game_id bet
+#[command]
+#[bucket = "basic"]
+fn white(context: &mut Context, message: &Message, args: Args) -> CommandResult{
+    bet_on_color("blanc".to_string(), &ENGLISH, context, message, args);
     Ok(())
 }
 
@@ -433,10 +464,7 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
     Ok(())
 }
 
-#[command]
-#[bucket = "basic"]
-// !coq
-fn coq(context: &mut Context, message: &Message) -> CommandResult {
+fn coq_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Message) -> CommandResult {
     let id = message.author.id.to_string();
 
     let conn = connect_db();
@@ -449,7 +477,7 @@ fn coq(context: &mut Context, message: &Message) -> CommandResult {
 
     let reply = MessageBuilder::new()
                 .push_bold_safe(message.author.name.clone())
-                .push(format!(", vous avez **{}** coquillages.", coq))
+                .push(format!("{}**{}**{}", locale!(l, "coq_0"), coq, locale!(l, "coq_1")))
                 .build();
 
     if let Err(why) = message.author.direct_message(&context, |m| {
@@ -463,23 +491,18 @@ fn coq(context: &mut Context, message: &Message) -> CommandResult {
 
 #[command]
 #[bucket = "basic"]
-fn state(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
-    let id = args.single::<usize>().unwrap();
-
-    let data = context.data.read();
-    let state = data.get::<BetStateData>().unwrap().get(&id).unwrap();
-
-    let reply = MessageBuilder::new()
-                    .push(format!("State: {:?}", state))
-                    .build();
-    send_message(message, &context.http, &reply);
-
-    Ok(())
+// !coq
+fn coq(context: &mut Context, message: &Message) -> CommandResult {
+    coq_worker(&FRENCH, context, message)
 }
 
 #[command]
 #[bucket = "basic"]
-fn recharge(context: &mut Context, message: &Message) -> CommandResult {
+fn shell(context: &mut Context, message: &Message) -> CommandResult {
+    coq_worker(&ENGLISH, context, message)
+}
+
+fn recharge_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Message) -> CommandResult {
     let conn = connect_db();
 
     // add user if he/she doesn't exists
@@ -492,24 +515,32 @@ fn recharge(context: &mut Context, message: &Message) -> CommandResult {
     if let Ok(nb_recharge_left) = update_recharge_user(message.author.id.to_string(), -1, &conn) {
         //feedback
         let reply = MessageBuilder::new()
-            .push_bold_safe(&message.author)
-            .push(", tu as gagné 200 coquillages !\n")
-            .push(format!("Il te reste **{}** recharges.", nb_recharge_left))
+            .push(locale!(l, "recharge_0"))
+            .push(format!("{}**{}**{}", locale!(l, "recharge_1"), nb_recharge_left, locale!(l, "recharge_2")))
             .build();
-        send_message(message, &context.http, &reply);
+        send_error(message, &context.http, &reply);
     } else {
         let reply = MessageBuilder::new()
-            .push_bold_safe(&message.author)
-            .push(", tu n'as plus de recharges !")
+            .push(locale!(l, "recharge_3"))
             .build();
-        send_message(message, &context.http, &reply);
+        send_error(message, &context.http, &reply);
     }
     Ok(())
 }
 
 #[command]
 #[bucket = "basic"]
-fn nb_recharge(context: &mut Context, message: &Message) -> CommandResult {
+fn recharge(context: &mut Context, message: &Message) -> CommandResult {
+    recharge_worker(&FRENCH, context, message)
+}
+
+#[command]
+#[bucket = "basic"]
+fn refill(context: &mut Context, message: &Message) -> CommandResult {
+    recharge_worker(&ENGLISH, context, message)
+}
+
+fn nb_recharge_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Message) -> CommandResult {
     let conn = connect_db();
     // add user if he/she doesn't exists
     if !user_exists(message.author.id.to_string(), &conn) {
@@ -525,14 +556,26 @@ fn nb_recharge(context: &mut Context, message: &Message) -> CommandResult {
     // feedback
     let reply = MessageBuilder::new()
         .push_bold_safe(&message.author)
-        .push(format!(", il te reste : **{}** recharges !", nb_recharge))
+        .push(format!("{}**{}**{}", locale!(l, "nb_recharge_0"), nb_recharge, locale!(l, "nb_recharge_1")))
         .build();
     if let Err(why) = message.author.direct_message(&context, |m| {
-            m.content(&reply)
+        m.content(&reply)
     }) {
         println!("Couldn't send message {:?}", why);
     }
     Ok(())
+}
+
+#[command]
+#[bucket = "basic"]
+fn nb_recharge(context: &mut Context, message: &Message) -> CommandResult {
+    nb_recharge_worker(&FRENCH, context, message)
+}
+
+#[command]
+#[bucket = "basic"]
+fn nb_refill(context: &mut Context, message: &Message) -> CommandResult {
+    nb_recharge_worker(&ENGLISH, context, message)
 }
 
 #[command]
@@ -585,16 +628,13 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     Ok(())
 }
 
-#[command]
-#[bucket = "basic"]
-// !etat id
-fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
+fn etat_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     let mut arg_ok = true;
     let id = args.single::<usize>().unwrap_or_else(|_| {
         arg_ok = false; 0
     });
     if !arg_ok {
-        send_error(message, &context.http, "Usage : !etat id");
+        send_error(message, &context.http, locale!(l, "etat_0"));
         return Ok(())
     }
 
@@ -602,7 +642,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     let state = match data.get::<BetStateData>().unwrap().get(&id) {
         Some(state) => state,
         None => {
-            send_error(message, &context.http, "Je ne connais pas cet id !");
+            send_error(message, &context.http, locale!(l, "etat_1"));
             return Ok(())
         },
     };
@@ -611,10 +651,10 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         m.embed(|e| {
         e.color(DISCORD_EMBED_COLOR);
             match state {
-                BetState::Betting => e.title("Les paris sont ouverts !\n"),
-                BetState::WaitingResult => e.title("Les paris sont fermés !\n"),
+                BetState::Betting => e.title(locale!(l, "etat_2")),
+                BetState::WaitingResult => e.title(locale!(l, "etat_3")),
                 BetState::NotBetting => {
-                    e.title("Les paris n'ont pas commencés.");
+                    e.title(locale!(l, "etat_4"));
                     return e
                 }
             };
@@ -624,8 +664,8 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
             };
             let conn = connect_db();
             let game = get_game(game.0.clone(), game.1.clone(), &conn).unwrap();
-            e.description(format!("Total pour **{}** (noir) : {}\nTotal pour **{}** (blanc) : {}\n",
-                &game.black, game.black_bet, &game.white, game.white_bet));
+            e.description(format!("{}**{}**{}{}{}**{}**{}{}\n",
+                locale!(l, "etat_5"), &game.black, locale!(l, "etat_6"), game.black_bet, locale!(l, "etat_7"), &game.white, locale!(l, "etat_8"), game.white_bet));
 
             let v1 = fulgurobot_db::get_bets_color(game.black.clone(), game.white.clone(), "noir".to_string(), 10, &conn);
             if !v1.is_empty() {
@@ -633,7 +673,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
                 for b in v1 {
                     string.push_str(&format!("{}\n", b));
                 }
-                e.field("Paris sur noir", string, true);
+                e.field(locale!(l, "etat_9"), string, true);
             }
 
             let v2 = fulgurobot_db::get_bets_color(game.black, game.white, "blanc".to_string(), 10, &conn);
@@ -642,7 +682,7 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
                 for b in v2 {
                     string.push_str(&format!("{}\n", b));
                 }
-                e.field("Paris sur blanc", string, true);
+                e.field(locale!(l, "etat_10"), string, true);
             }
 
             e
@@ -650,6 +690,20 @@ fn etat(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         m
     }).expect("Could not send embed");
     Ok(())
+}
+
+#[command]
+#[bucket = "basic"]
+// !etat id
+fn etat(context: &mut Context, message: &Message, args: Args) -> CommandResult {
+    etat_worker(&FRENCH, context, message, args)
+}
+
+#[command]
+#[bucket = "basic"]
+// !etat id
+fn state(context: &mut Context, message: &Message, args: Args) -> CommandResult {
+    etat_worker(&ENGLISH, context, message, args)
 }
 
 #[command]
@@ -669,8 +723,8 @@ fn boost(context: &mut Context, message: &Message) -> CommandResult {
     boost_user(id, &conn);
     let reply = MessageBuilder::new()
         .push_bold_safe(&user)
-        .push(", tu as gagné 200 coquillages !\n")
+        .push("Tu as gagné 200 coquillages !\n")
         .build();
-    send_message(message, &context.http, &reply);
+    send_error(message, &context.http, &reply);
     Ok(())
 }

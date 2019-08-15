@@ -14,6 +14,7 @@ edition = "2018"
 
 [dependencies]
 dirs        = "*"
+lazy_static = "*"
 fulgurobot_db = { path="fulgurobot_db" }
 serenity    = "*"
 kgs_handler = { path = "kgs_handler" }

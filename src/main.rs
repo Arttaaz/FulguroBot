@@ -4,6 +4,7 @@ extern crate serenity;
 extern crate kgs_handler;
 
 mod bot;
+mod strings;
 
 use bot::*;
 // use kgs_handler::*;

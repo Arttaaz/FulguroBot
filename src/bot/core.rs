@@ -60,7 +60,7 @@ impl EventHandler for Handler {}
 group!({
     name: "general",
     options: {},
-    commands: [noir, blanc, fulgurobot, coq, nb_recharge, recharge, etat, /*give*/]
+    commands: [noir, black, blanc, white, fulgurobot, help, coq, shell, nb_recharge, nb_refill, recharge, refill, etat, state, /*give*/]
 });
 
 group!({
@@ -72,7 +72,7 @@ group!({
 group!({
     name: "debug",
     options: { allowed_roles: ["Team Codeur", "Admin FulguroGo"] },
-    commands: [state],
+    commands: [],
 });
 
 group!({
