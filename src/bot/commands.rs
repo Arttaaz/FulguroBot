@@ -33,7 +33,7 @@ fn send_message(message: &Message, http: &Http, reply: &str) {
     }
 }
 
-fn send_error(message: &Message, http: &Http, reply: &str) {
+fn send_with_mention(message: &Message, http: &Http, reply: &str) {
     let user = http.get_member(DISCORD_GUILD_ID, message.author.id.0).unwrap();
     if let Err(why) = message.channel_id.send_message(http, |m| {
         m.embed(|e| {
@@ -62,12 +62,12 @@ fn bet_on_color(color: String,
         args_ok = false; 0
     });
     if !args_ok {
-        send_error(message, &context.http, &format!("{}{}{}", locale!(l, "bet_0"), &color, locale!(l, "bet_1")));
+        send_with_mention(message, &context.http, &format!("{}{}{}", locale!(l, "bet_0"), &color, locale!(l, "bet_1")));
         return
     }
 
     if nb_coq <= 0 {
-        send_error(message, &context.http, locale!(l, "bet_2"));
+        send_with_mention(message, &context.http, locale!(l, "bet_2"));
         return
     }
 
@@ -75,11 +75,11 @@ fn bet_on_color(color: String,
     if let Some(game) = data.get::<BetStateData>().unwrap().get(&game_id) {
         match game {
             BetState::NotBetting    => {
-                send_error(message, &context.http, locale!(l, "bet_3"));
+                send_with_mention(message, &context.http, locale!(l, "bet_3"));
                 return
             },
             BetState::WaitingResult => {
-                send_error(message, &context.http, locale!(l, "bet_4"));
+                send_with_mention(message, &context.http, locale!(l, "bet_4"));
                 return
             },
             _ => ()
@@ -95,7 +95,7 @@ fn bet_on_color(color: String,
     }
     let games = data.get::<GameData>().unwrap();
     if game_id >= games.len() || games[game_id].is_none() {
-        send_error(message, &context.http, locale!(l, "bet_5"));
+        send_with_mention(message, &context.http, locale!(l, "bet_5"));
         return
     }
     let black = data.get::<GameData>().unwrap()[game_id].as_ref().unwrap().0.clone();
@@ -110,7 +110,7 @@ fn bet_on_color(color: String,
     if coq - nb_coq > 0 {
         create_bet(id, black, white, nb_coq, color, &conn);
     } else {
-        send_error(message, &context.http, locale!(l, "bet_6"));
+        send_with_mention(message, &context.http, locale!(l, "bet_6"));
     }
 }
 
@@ -209,7 +209,7 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
         args_ok = false; "".into()
     });
     if !args_ok {
-        send_error(message, &context.http, "usage: !create_game noir blanc");
+        send_with_mention(message, &context.http, "usage: !create_game noir blanc");
         return Ok(())
     }
 
@@ -268,7 +268,7 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
     });
 
     if !arg_ok {
-        send_error(message, &context.http, "Usage: !debut_paris game_id");
+        send_with_mention(message, &context.http, "Usage: !debut_paris game_id");
         return Ok(())
     }
 
@@ -281,10 +281,10 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
             let conn = connect_db();
             update_game_state(game.0, game.1, BetState::Betting.into(), &conn);
         } else if state == &BetState::Betting {
-            send_error(message, &context.http, "Les paris sont déjà en cours !");
+            send_with_mention(message, &context.http, "Les paris sont déjà en cours !");
             return Ok(())
         } else {
-            send_error(message, &context.http, "La partie est en attente du résultat");
+            send_with_mention(message, &context.http, "La partie est en attente du résultat");
             return Ok(())
         }
         let reply = MessageBuilder::new()
@@ -292,7 +292,7 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
                     .build();
         send_message(message, &context.http, &reply);
     } else {
-        send_error(message, &context.http, "Mauvais id de partie");
+        send_with_mention(message, &context.http, "Mauvais id de partie");
     }
     Ok(())
 }
@@ -306,7 +306,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
         arg_ok = false; 0
     });
     if !arg_ok {
-        send_error(message, &context.http, "Usage: !fin_paris game_id");
+        send_with_mention(message, &context.http, "Usage: !fin_paris game_id");
         return Ok(())
     }
 
@@ -314,7 +314,7 @@ fn fin_paris(context: &mut Context, message: &Message, mut args: Args) -> Comman
     {
         let game = data.get::<GameData>().unwrap();
         if game_id >= game.len() || game[game_id].is_none() {
-            send_error(message, &context.http, "Mauvais id de partie");
+            send_with_mention(message, &context.http, "Mauvais id de partie");
         }
         let black = &game[game_id].as_ref().unwrap().0;
         let white = &game[game_id].as_ref().unwrap().1;
@@ -356,12 +356,12 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
         args_ok = false; "".into()
     });
     if color != "noir".to_owned() && color != "blanc".to_owned() {
-        send_error(message, &context.http, "Usage: !resultat game_id couleur (blanc ou noir)");
+        send_with_mention(message, &context.http, "Usage: !resultat game_id couleur (blanc ou noir)");
         return Ok(())
     }
 
     if !args_ok {
-        send_error(message, &context.http, "Usage: !resultat game_id couleur");
+        send_with_mention(message, &context.http, "Usage: !resultat game_id couleur");
         return Ok(())
     }
 
@@ -370,13 +370,13 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
     {
         let games = data.get_mut::<GameData>().unwrap();
         if game_id >= games.len() || games[game_id].is_none() {
-            send_error(message, &context.http, "Mauvais id de partie");
+            send_with_mention(message, &context.http, "Mauvais id de partie");
             return Ok(())
         }
     }
     let state = data.get::<BetStateData>().unwrap().get(&game_id).unwrap();
     if state != &BetState::WaitingResult {
-        send_error(message, &context.http, "Les paris n'ont même pas encore commencé !");
+        send_with_mention(message, &context.http, "Les paris n'ont même pas encore commencé !");
         return Ok(())
     }
 
@@ -518,12 +518,12 @@ fn recharge_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Mes
             .push(locale!(l, "recharge_0"))
             .push(format!("{}**{}**{}", locale!(l, "recharge_1"), nb_recharge_left, locale!(l, "recharge_2")))
             .build();
-        send_error(message, &context.http, &reply);
+        send_with_mention(message, &context.http, &reply);
     } else {
         let reply = MessageBuilder::new()
             .push(locale!(l, "recharge_3"))
             .build();
-        send_error(message, &context.http, &reply);
+        send_with_mention(message, &context.http, &reply);
     }
     Ok(())
 }
@@ -591,10 +591,10 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         args_ok = false; 0
     });
     if !args_ok || nb_coq <= 0  {
-        send_error(message, &context.http, "Usage: !give @name nb_coq (> 0)");
+        send_with_mention(message, &context.http, "Usage: !give @name nb_coq (> 0)");
         return Ok(())
     } else if nb_coq > 2000 { // limite de 2000 coquillages
-        send_error(message, &context.http, "Impossible de donner plus de 2000 coquillages !");
+        send_with_mention(message, &context.http, "Impossible de donner plus de 2000 coquillages !");
         return Ok(())
     }
 
@@ -609,7 +609,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     }
     // if user to give coq to doesn't exit cancel operation
     if !user_exists(id_s.clone(), &conn) {
-        send_error(message, &context.http, &format!("L'utilisateur {} n'est pas dans la base de données du bot !", id));
+        send_with_mention(message, &context.http, &format!("L'utilisateur {} n'est pas dans la base de données du bot !", id));
         return Ok(())
     }
 
@@ -634,7 +634,7 @@ fn etat_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Message
         arg_ok = false; 0
     });
     if !arg_ok {
-        send_error(message, &context.http, locale!(l, "etat_0"));
+        send_with_mention(message, &context.http, locale!(l, "etat_0"));
         return Ok(())
     }
 
@@ -642,7 +642,7 @@ fn etat_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &Message
     let state = match data.get::<BetStateData>().unwrap().get(&id) {
         Some(state) => state,
         None => {
-            send_error(message, &context.http, locale!(l, "etat_1"));
+            send_with_mention(message, &context.http, locale!(l, "etat_1"));
             return Ok(())
         },
     };
@@ -725,6 +725,6 @@ fn boost(context: &mut Context, message: &Message) -> CommandResult {
         .push_bold_safe(&user)
         .push("Tu as gagné 200 coquillages !\n")
         .build();
-    send_error(message, &context.http, &reply);
+    send_with_mention(message, &context.http, &reply);
     Ok(())
 }

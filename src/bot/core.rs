@@ -55,7 +55,12 @@ impl TypeMapKey for GameData {
 
 struct Handler;
 
-impl EventHandler for Handler {}
+impl EventHandler for Handler {
+    fn ready(&self, ctx: serenity::prelude::Context, _: serenity::model::gateway::Ready) {
+        ctx.set_activity(serenity::model::gateway::Activity::playing("battre AlphaZero"));
+        println!("FulguroBot is ready.")
+    }
+}
 
 group!({
     name: "general",
