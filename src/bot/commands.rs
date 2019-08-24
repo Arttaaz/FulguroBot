@@ -107,7 +107,7 @@ fn bet_on_color(color: String,
     if let Some(bet) = get_bet(id.clone(), black.clone(), white.clone(), &conn) {
         coq += bet.bet;
     }
-    if coq - nb_coq > 0 {
+    if coq - nb_coq >= 0 {
         create_bet(id, black, white, nb_coq, color, &conn);
     } else {
         send_with_mention(message, &context.http, locale!(l, "bet_6"));
@@ -391,16 +391,18 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
         Some(u) => u,
         None => Vec::new(), //maybe change later to cancel the bets if there is no winner
     };
-    let mut total = 0;
+    let total_color =
     match color.as_str() {
         "noir" => {
-            total = game.black_bet;
+            game.black_bet
         },
         "blanc" => {
-            total = game.white_bet;
+            game.white_bet
         },
-        _ => (),
-    }
+        _ => 0,
+    };
+    let total = game.black_bet + game.white_bet;
+
     let mut reply = MessageBuilder::new();
     if let Err(why) = message.channel_id.send_message(&context.http, |m| {
         m.embed(|e| {
@@ -408,8 +410,11 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
              .title("Gagnants :");
             for user in users {
                 let bet = get_bet(user.id.clone(), black.clone(), white.clone(), &conn).unwrap();
-                let percent = bet.bet / total;
-                let gain = total * percent;
+                println!("BET: {:?}", &bet);
+                let percent = bet.bet as f32 / total_color as f32;
+                println!("PERCENT: {}", percent);
+                let gain = (total * percent).ceil();
+                println!("GAIN: {}", gain);
                 add_coq_to_user(user.id.clone(), gain, &conn);
 
                 let user = context.http.get_member(DISCORD_GUILD_ID, user.id.parse().unwrap()).unwrap();

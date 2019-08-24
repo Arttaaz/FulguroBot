@@ -3,7 +3,7 @@ use diesel::Queryable;
 use diesel::Insertable;
 use crate::schema::*;
 
-#[derive(Queryable, Insertable, AsChangeset)]
+#[derive(Debug, Queryable, Insertable, AsChangeset)]
 #[table_name= "bets"]
 pub struct Bets {
     pub user_id: String,
@@ -21,7 +21,7 @@ impl Display for Bets {
     }
 }
 
-#[derive(Queryable, Insertable)]
+#[derive(Debug, Queryable, Insertable)]
 #[table_name = "game"]
 pub struct Game {
     pub black: String,
