@@ -410,11 +410,8 @@ fn resultat(context: &mut Context, message: &Message, mut args: Args) -> Command
              .title("Gagnants :");
             for user in users {
                 let bet = get_bet(user.id.clone(), black.clone(), white.clone(), &conn).unwrap();
-                println!("BET: {:?}", &bet);
                 let percent = bet.bet as f32 / total_color as f32;
-                println!("PERCENT: {}", percent);
-                let gain = (total * percent).ceil();
-                println!("GAIN: {}", gain);
+                let gain = (total as f32 * percent).ceil() as i32;
                 add_coq_to_user(user.id.clone(), gain, &conn);
 
                 let user = context.http.get_member(DISCORD_GUILD_ID, user.id.parse().unwrap()).unwrap();
