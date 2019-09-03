@@ -165,6 +165,12 @@ pub fn help(context: &mut Context, message: &Message) -> CommandResult {
     fulgurobot_worker(&ENGLISH, context, message)
 }
 
+#[command]
+#[bucket = "basic"]
+pub fn commands(context: &mut Context, message: &Message) -> CommandResult {
+    fulgurobot_worker(&ENGLISH, context, message)
+}
+
 // !noir game_id bet
 #[command]
 #[bucket = "basic"]
@@ -208,6 +214,7 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
     let white = args.single::<String>().unwrap_or_else(|_| {
         args_ok = false; "".into()
     });
+
     if !args_ok {
         send_with_mention(message, &context.http, "usage: !create_game noir blanc");
         return Ok(())
@@ -272,6 +279,11 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
         return Ok(())
     }
 
+    let timeout = match args.single::<String>() {
+        Ok(_) => Some(()),
+        Err(_) => None,
+    };
+
     let mut data = context.data.write();
     if let Some(game) = data.get::<GameData>().unwrap()[game_id].as_ref() {
         let game = game.clone();
@@ -279,7 +291,35 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
         if state == &BetState::NotBetting {
             *state = BetState::Betting;
             let conn = connect_db();
-            update_game_state(game.0, game.1, BetState::Betting.into(), &conn);
+            update_game_state(game.0.clone(), game.1.clone(), BetState::Betting.into(), &conn);
+            if timeout.is_some() {
+                let cx = context.data.clone();
+                let m = message.channel_id;
+                let h = context.http.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(600));
+                    let mut cx = cx.write();
+                    let state = cx.get_mut::<BetStateData>().unwrap().get_mut(&game_id).unwrap();
+                    *state = BetState::WaitingResult;
+                    let reply = MessageBuilder::new()
+                    .push("Les paris de la partie ")
+                    .push_bold_safe(format!("{}", game.0))
+                    .push(" vs ")
+                    .push_bold_safe(format!("{}", game.1))
+                    .push(" sont finis !")
+                    .build();
+                    if let Err(why) = m.send_message(&h, |m| {
+                        m.embed(|e| {
+                            e.title(reply)
+                             .color(DISCORD_EMBED_COLOR);
+                            e
+                        });
+                        m
+                    }) {
+                        println!("Could not send message: {:?}", why);
+                    }
+                });
+            }
         } else if state == &BetState::Betting {
             send_with_mention(message, &context.http, "Les paris sont déjà en cours !");
             return Ok(())

@@ -65,7 +65,7 @@ impl EventHandler for Handler {
 group!({
     name: "general",
     options: {},
-    commands: [noir, black, blanc, white, fulgurobot, help, coq, shell, nb_recharge, nb_refill, recharge, refill, etat, state, /*give*/]
+    commands: [noir, black, blanc, white, fulgurobot, help, commands, coq, shell, nb_recharge, nb_refill, recharge, refill, etat, state, /*give*/]
 });
 
 group!({
