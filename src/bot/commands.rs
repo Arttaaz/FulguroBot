@@ -265,24 +265,36 @@ fn create_game(context: &mut Context, message: &Message, mut args: Args) -> Comm
     Ok(())
 }
 
-// !debut_paris game_id
+// !debut_paris game_id [timeout time]
 #[command]
 #[bucket = "basic"]
 fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
-    let mut arg_ok : bool = true;
+    let mut args_ok : bool = true;
     let game_id = args.single::<usize>().unwrap_or_else(|_| {
-        arg_ok = false; 0
+        args_ok = false; 0
     });
+    let timeout = match args.single::<String>() {
+        Ok(s) => {
+            if s == "timeout".to_string() {
+                Some(())
+            } else {
+                None
+            }
+        },
+        Err(_) => None,
+    };
+    let mut time = 0;
+    if timeout.is_some() {
+        time = args.single::<u64>().unwrap_or_else(|_| {
+            args_ok = false; 0
+        });
+    }
 
-    if !arg_ok {
+    if !args_ok {
         send_with_mention(message, &context.http, "Usage: !debut_paris game_id");
         return Ok(())
     }
 
-    let timeout = match args.single::<String>() {
-        Ok(_) => Some(()),
-        Err(_) => None,
-    };
 
     let mut data = context.data.write();
     if let Some(game) = data.get::<GameData>().unwrap()[game_id].as_ref() {
@@ -292,22 +304,22 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
             *state = BetState::Betting;
             let conn = connect_db();
             update_game_state(game.0.clone(), game.1.clone(), BetState::Betting.into(), &conn);
-            if timeout.is_some() {
+            if timeout.is_some() { // launch a thread that stops betting after the timeout
                 let cx = context.data.clone();
                 let m = message.channel_id;
                 let h = context.http.clone();
                 std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_secs(600));
+                    std::thread::sleep(std::time::Duration::from_secs(time * 60));
                     let mut cx = cx.write();
                     let state = cx.get_mut::<BetStateData>().unwrap().get_mut(&game_id).unwrap();
                     *state = BetState::WaitingResult;
                     let reply = MessageBuilder::new()
-                    .push("Les paris de la partie ")
-                    .push_bold_safe(format!("{}", game.0))
-                    .push(" vs ")
-                    .push_bold_safe(format!("{}", game.1))
-                    .push(" sont finis !")
-                    .build();
+                        .push("Les paris de la partie ")
+                        .push_bold_safe(format!("{}", game.0))
+                        .push(" vs ")
+                        .push_bold_safe(format!("{}", game.1))
+                        .push(" sont finis !")
+                        .build();
                     if let Err(why) = m.send_message(&h, |m| {
                         m.embed(|e| {
                             e.title(reply)
