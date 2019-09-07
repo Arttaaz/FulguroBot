@@ -21,7 +21,7 @@ impl Display for Bets {
     }
 }
 
-#[derive(Debug, Queryable, Insertable)]
+#[derive(Debug, Clone, Queryable, Insertable)]
 #[table_name = "game"]
 pub struct Game {
     pub black: String,
@@ -29,6 +29,8 @@ pub struct Game {
     pub black_bet: i32,
     pub white_bet: i32,
     pub state: i32,
+    pub start: String,
+    pub timeout: i32,
 }
 
 #[derive(Debug, PartialEq, Queryable, QueryableByName, Insertable)]

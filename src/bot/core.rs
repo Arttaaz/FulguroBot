@@ -1,3 +1,7 @@
+use fulgurobot_db::connect_db;
+use serenity::model::id::ChannelId;
+use fulgurobot_db::update_game_state;
+use chrono::prelude::{ DateTime, Utc };
 use crate::bot::consts::DISCORD_EMBED_COLOR;
 use std::{ collections::HashMap, env };
 use serenity::{
@@ -139,9 +143,51 @@ fn restore_context(client: &Client) {
         let mut states : Vec<BetState> = Vec::new();
 
         // fill GameData array
-        for game in games {
-            g.push(Some((game.black, game.white, None)));
-            states.push(game.state.into());
+        for (i, game) in games.iter().enumerate() {
+            g.push(Some((game.black.clone(), game.white.clone(), None)));
+            if !game.start.is_empty() {
+                let start = game.start.parse::<DateTime<Utc>>().unwrap();
+                if Utc::now() <= start + chrono::Duration::seconds((game.timeout) as i64) {
+                    states.push(BetState::WaitingResult);
+                } else if Utc::now() > start + chrono::Duration::seconds((game.timeout) as i64) {
+                    let black = game.black.clone();
+                    let white = game.white.clone();
+                    let d2 = client.data.clone();
+                    let h = client.cache_and_http.http.clone();
+                    let m = ChannelId(DISCORD_CHANNEL_ID);
+                    let g2 = game.clone();
+                    let i = i.clone();
+                    let s = start.clone();
+
+                    std::thread::spawn(move || {
+                        std::thread::sleep((s + chrono::Duration::seconds((g2.timeout + 60) as i64) - Utc::now()).to_std().unwrap());
+                        let mut cx = d2.write();
+                        let state = cx.get_mut::<BetStateData>().unwrap().get_mut(&i).unwrap();
+                        *state = BetState::WaitingResult;
+                        let conn = connect_db();
+                        update_game_state(black.clone(), white.clone(), BetState::WaitingResult.into(), &conn);
+                        let reply = MessageBuilder::new()
+                            .push("Les paris de la partie ")
+                            .push_bold_safe(format!("{}", black))
+                            .push(" vs ")
+                            .push_bold_safe(format!("{}", white))
+                            .push(" sont finis !")
+                            .build();
+                        if let Err(why) = m.send_message(&h, |m| {
+                            m.embed(|e| {
+                                e.title(reply)
+                                 .color(DISCORD_EMBED_COLOR);
+                                e
+                            });
+                            m
+                        }) {
+                            println!("Could not send message: {:?}", why);
+                        }
+                    });
+                } else {
+                    states.push(game.state.into());
+                }
+            }
         }
 
         // send feedback

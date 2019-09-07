@@ -431,6 +431,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "fulguro_bot"
 version = "1.1.0"
 dependencies = [
+ "chrono 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "fulgurobot_db 0.4.5",
  "kgs_handler 0.1.0",

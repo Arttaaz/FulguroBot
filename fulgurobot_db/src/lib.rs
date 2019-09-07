@@ -235,6 +235,8 @@ pub fn create_game(black: String, white: String, conn: &SqliteConnection) {
         black_bet: 0,
         white_bet: 0,
         state: 0,
+        start: "".to_string(),
+        timeout: 0,
     };
 
     insert_into(game::dsl::game).values(game).execute(conn).expect("Could not create game");
@@ -277,6 +279,15 @@ pub fn update_game_state(black: String, white: String, state: i32, conn: &Sqlite
             .expect("Could not update game state");
 }
 
+pub fn update_game_start(black: String, white: String, start: String, timeout: i32, conn: &SqliteConnection) {
+    diesel::update(game::dsl::game)
+            .set((game::dsl::start.eq(start), game::dsl::timeout.eq(timeout)))
+            .filter(game::dsl::black.eq(black))
+            .filter(game::dsl::white.eq(white))
+            .execute(conn)
+            .expect("Could not update game start");
+}
+
 pub fn delete_game(black: String, white: String, conn: &SqliteConnection) {
     diesel::delete(game::dsl::game).filter(game::dsl::black.eq(black)).filter(game::dsl::white.eq(white)).execute(conn)
         .expect("Could not delete game");
@@ -284,9 +295,9 @@ pub fn delete_game(black: String, white: String, conn: &SqliteConnection) {
 
 #[cfg(test)]
 fn reset_database(conn: &SqliteConnection) {
-    diesel::delete(bets::dsl::bets).execute(conn);
-    diesel::delete(game::dsl::game).execute(conn);
-    diesel::delete(users::dsl::users).execute(conn);
+    diesel::delete(bets::dsl::bets).execute(conn).unwrap();
+    diesel::delete(game::dsl::game).execute(conn).unwrap();
+    diesel::delete(users::dsl::users).execute(conn).unwrap();
 }
 
 #[test]

@@ -285,7 +285,7 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
     };
     let mut time = 0;
     if timeout.is_some() {
-        time = args.single::<u64>().unwrap_or_else(|_| {
+        time = args.single::<u8>().unwrap_or_else(|_| {
             args_ok = false; 0
         });
     }
@@ -309,10 +309,14 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
                 let m = message.channel_id;
                 let h = context.http.clone();
                 std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_secs(time * 60));
+                    let start = chrono::prelude::Utc::now();
+                    let start = start.to_string();
+                    update_game_start(game.0.clone(), game.1.clone(), start, (time*60) as i32, &conn);
+                    std::thread::sleep(std::time::Duration::from_secs((time * 60).into()));
                     let mut cx = cx.write();
                     let state = cx.get_mut::<BetStateData>().unwrap().get_mut(&game_id).unwrap();
                     *state = BetState::WaitingResult;
+                    update_game_state(game.0.clone(), game.1.clone(), BetState::WaitingResult.into(), &conn);
                     let reply = MessageBuilder::new()
                         .push("Les paris de la partie ")
                         .push_bold_safe(format!("{}", game.0))
@@ -340,7 +344,13 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
             return Ok(())
         }
         let reply = MessageBuilder::new()
-                    .push("Les paris sont ouverts !")
+                    .push(
+                        if timeout.is_some() {
+                            format!("Les paris sont ouverts pendant {} minutes !", time*60)
+                        } else {
+                            "Les paris sont ouverts !".to_string()
+                        }
+                    )
                     .build();
         send_message(message, &context.http, &reply);
     } else {

@@ -7,7 +7,8 @@ CREATE TABLE game (
     black_bet INT NOT NULL,
     white_bet INT NOT NULL,
     state     INT NOT NULL,
-    start     INT NOT NULL,
+    start     TEXT NOT NULL,
+    timeout   INT NOT NULL,
 
     PRIMARY KEY (black, white)
 );

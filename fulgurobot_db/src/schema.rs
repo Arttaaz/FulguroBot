@@ -15,6 +15,8 @@ table! {
         black_bet -> Integer,
         white_bet -> Integer,
         state -> Integer,
+        start -> Text,
+        timeout -> Integer,
     }
 }
 
