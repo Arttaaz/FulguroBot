@@ -312,7 +312,7 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
                     let start = chrono::prelude::Utc::now();
                     let start = start.to_string();
                     update_game_start(game.0.clone(), game.1.clone(), start, (time*60) as i32, &conn);
-                    std::thread::sleep(std::time::Duration::from_secs((time * 60).into()));
+                    std::thread::sleep(std::time::Duration::from_secs((time * 60) as u64));
                     let mut cx = cx.write();
                     let state = cx.get_mut::<BetStateData>().unwrap().get_mut(&game_id).unwrap();
                     *state = BetState::WaitingResult;
@@ -346,7 +346,7 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
         let reply = MessageBuilder::new()
                     .push(
                         if timeout.is_some() {
-                            format!("Les paris sont ouverts pendant {} minutes !", time*60)
+                            format!("Les paris sont ouverts pendant {} minutes !", time)
                         } else {
                             "Les paris sont ouverts !".to_string()
                         }
@@ -356,6 +356,42 @@ fn debut_paris(context: &mut Context, message: &Message, mut args: Args) -> Comm
     } else {
         send_with_mention(message, &context.http, "Mauvais id de partie");
     }
+    Ok(())
+}
+
+#[command]
+#[bucket = "basic"]
+fn annuler(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
+    let mut arg_ok : bool = true;
+    let game_id = args.single::<usize>().unwrap_or_else(|_| {
+        arg_ok = false; 0
+    });
+    if !arg_ok {
+        send_with_mention(message, &context.http, "Usage: !annuler game_id");
+        return Ok(())
+    }
+
+    let mut data = context.data.write();
+    {
+        let game = data.get_mut::<GameData>().unwrap();
+        if game_id > game.len() || game[game_id].is_none() {
+            send_with_mention(message, &context.http, "Mauvais id de partie");
+            return Ok(())
+        }
+
+        let (black, white, pin) = game[game_id].as_ref().unwrap();
+        let conn = connect_db();
+        fulgurobot_db::cancel_bet(black.clone(), white.clone(), &conn);
+        fulgurobot_db::delete_game(black.clone(), white.clone(), &conn);
+        if pin.is_some() {
+            if let Err(why) = message.channel_id.unpin(&context.http, pin.as_ref().unwrap()) {
+                println!("Could not unpin message: {:?}", why);
+            }
+        }
+        game[game_id] = None;
+    }
+    data.get_mut::<BetStateData>().unwrap().remove(&game_id);
+
     Ok(())
 }
 

@@ -212,6 +212,21 @@ pub fn update_bet(bet: Bets, conn: &SqliteConnection) {
         .expect("Could not update bet");
 }
 
+pub fn cancel_bet(black: String, white: String, conn: &SqliteConnection) {
+    conn.transaction::<_,diesel::result::Error,_>(|| {
+        let bets = bets::dsl::bets.filter(bets::dsl::black.eq(black))
+                                    .filter(bets::dsl::white.eq(white))
+                                    .load::<Bets>(conn)
+                                    .expect("Could not select bets");
+
+        for bet in bets {
+            remove_bet(bet.clone(), conn);
+            add_coq_to_user(bet.user_id, bet.bet, conn);
+        }
+        Ok(())
+    }).unwrap();
+}
+
 pub fn remove_bets_of_game(black: String, white: String, conn: &SqliteConnection) {
     diesel::delete(bets::dsl::bets
         .filter(bets::dsl::black.eq(black.clone()))

@@ -3,7 +3,7 @@ use diesel::Queryable;
 use diesel::Insertable;
 use crate::schema::*;
 
-#[derive(Debug, Queryable, Insertable, AsChangeset)]
+#[derive(Debug, Clone, Queryable, Insertable, AsChangeset)]
 #[table_name= "bets"]
 pub struct Bets {
     pub user_id: String,

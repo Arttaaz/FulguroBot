@@ -75,7 +75,7 @@ group!({
 group!({
     name: "control",
     options: { allowed_roles: ["Animateur", "Team Codeur", "Modération", "Admin FulguroGo"] },
-    commands: [create_game, debut_paris, fin_paris, resultat],
+    commands: [create_game, debut_paris, annuler, fin_paris, resultat],
 });
 
 group!({
@@ -146,10 +146,13 @@ fn restore_context(client: &Client) {
         for (i, game) in games.iter().enumerate() {
             g.push(Some((game.black.clone(), game.white.clone(), None)));
             if !game.start.is_empty() {
-                let start = game.start.parse::<DateTime<Utc>>().unwrap();
-                if Utc::now() <= start + chrono::Duration::seconds((game.timeout) as i64) {
+                let start = chrono::NaiveDateTime::parse_from_str(&game.start,
+                    "%Y-%m-%d %H:%M:%S%.9f UTC").expect("Wat");
+                let start = DateTime::from_utc(start, chrono::offset::Utc);
+                if Utc::now() > start + chrono::Duration::seconds((game.timeout) as i64) {
                     states.push(BetState::WaitingResult);
-                } else if Utc::now() > start + chrono::Duration::seconds((game.timeout) as i64) {
+                } else if Utc::now() <= start + chrono::Duration::seconds((game.timeout) as i64) {
+                    states.push(BetState::Betting);
                     let black = game.black.clone();
                     let white = game.white.clone();
                     let d2 = client.data.clone();
@@ -160,7 +163,8 @@ fn restore_context(client: &Client) {
                     let s = start.clone();
 
                     std::thread::spawn(move || {
-                        std::thread::sleep((s + chrono::Duration::seconds((g2.timeout + 60) as i64) - Utc::now()).to_std().unwrap());
+                        dbg!(s + chrono::Duration::seconds((g2.timeout + 60) as i64) - Utc::now());
+                        std::thread::sleep((s + chrono::Duration::seconds((g2.timeout + 60) as i64) - Utc::now()).to_std().expect("what"));
                         let mut cx = d2.write();
                         let state = cx.get_mut::<BetStateData>().unwrap().get_mut(&i).unwrap();
                         *state = BetState::WaitingResult;
