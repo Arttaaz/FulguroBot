@@ -12,6 +12,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Download sqlite
+      run: apt install libsqlite3-dev
     - name: Build
       run: cargo build --release --verbose
     - name: Run tests
