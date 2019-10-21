@@ -107,6 +107,7 @@ pub fn init_bot() -> Client {
                             .bucket("basic", |b| b.delay(2).time_span(10).limit(3))
                             .configure(|c| c.prefix("!")
                                             .allow_dm(false)
+                                            .ignore_bots(false)
                                             .allowed_channels(vec![chan_id].into_iter().collect()))
                             //add commands here
                             .group(&GENERAL_GROUP)
