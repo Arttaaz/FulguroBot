@@ -1,3 +1,5 @@
+![](https://github.com/Arttaaz/FulguroBot/workflows/Rust/badge.svg)
+
 # FulguroBot
 
 Discord bot for the french discord server FulguroGo.

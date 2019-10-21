@@ -1,0 +1,18 @@
+name: Rust
+
+on:
+  push:
+    branches: 
+      - master
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Download sqlite
+      run: sudo apt install libsqlite3-dev
+    - name: Build
+      run: cargo build --release --verbose
