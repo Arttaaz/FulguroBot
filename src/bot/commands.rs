@@ -139,9 +139,10 @@ fn fulgurobot_worker(l: &HashMap<&str, &str>, context: &mut Context, message: &M
                 e.title("Commandes pour controler Fulgurobot")
                  .color(DISCORD_EMBED_COLOR)
                  .field("!create_game noir blanc", "créé une partie pour parier et lui donne un id pour les autre commandes.", false)
-                 .field("!debut_paris game_id", "démarre les paris pour la partie identifié par game_id.", false)
+                 .field("!debut_paris game_id [timeout x]", "démarre les paris pour la partie identifié par game_id, avec optionnellement un timeout de x minutes.", false)
                  .field("!fin_paris game_id", "bloque les paris pour la partie identifié par game_id.", false)
-                 .field("!resultat game_id couleur", "indique la couleur gagnante de la partie identifié par game_id.", false);
+                 .field("!resultat game_id couleur", "indique la couleur gagnante de la partie identifié par game_id.", false)
+                 .field("!annuler game_id", "annule les paris de la partie en cours. (utile en cas d'erreur ou jigo)", false);
                 e
             });
             m
