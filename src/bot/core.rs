@@ -142,6 +142,7 @@ fn restore_context(client: &Client) {
         let mut data = client.data.write();
         let g = data.get_mut::<GameData>().unwrap();
         let mut states : Vec<BetState> = Vec::new();
+        dbg!("nani");
 
         // fill GameData array
         for (i, game) in games.iter().enumerate() {
@@ -162,7 +163,7 @@ fn restore_context(client: &Client) {
                     let g2 = game.clone();
                     let i = i.clone();
                     let s = start.clone();
-
+                    dbg!("what");
                     std::thread::spawn(move || {
                         dbg!(s + chrono::Duration::seconds((g2.timeout + 60) as i64) - Utc::now());
                         std::thread::sleep((s + chrono::Duration::seconds((g2.timeout + 60) as i64) - Utc::now()).to_std().expect("what"));
