@@ -102,13 +102,14 @@ pub fn init_bot() -> Client {
 
     let mut client = Client::new(&env::var("DISCORD_TOKEN").unwrap(), Handler).expect("Error creating client");
     let chan_id = serenity::model::id::ChannelId(DISCORD_CHANNEL_ID);
+    let chan_debug_id = serenity::model::id::ChannelId(DISCORD_CHANNEL_DEBUG_ID);
 
     client.with_framework(StandardFramework::new()
                             .bucket("basic", |b| b.delay(2).time_span(10).limit(3))
                             .configure(|c| c.prefix("!")
                                             .allow_dm(false)
                                             .ignore_bots(false)
-                                            .allowed_channels(vec![chan_id].into_iter().collect()))
+                                            .allowed_channels(vec![chan_id, chan_debug_id].into_iter().collect()))
                             //add commands here
                             .group(&GENERAL_GROUP)
                             .group(&CONTROL_GROUP)
@@ -193,6 +194,8 @@ fn restore_context(client: &Client) {
                 } else {
                     states.push(game.state.into());
                 }
+            } else {
+                states.push(game.state.into());
             }
         }
 

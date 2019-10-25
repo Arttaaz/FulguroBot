@@ -1,4 +1,5 @@
 pub const DISCORD_CHANNEL_ID        : u64           = 613_298_102_509_764_619;
+pub const DISCORD_CHANNEL_DEBUG_ID  : u64           = 433_961_491_864_223_755;
 pub const DISCORD_GUILD_ID          : u64           = 205_702_304_589_021_184;
 pub const DISCORD_ROLE_ANIMATEUR    : u64           = 400_904_374_219_571_201;
 pub const DISCORD_ROLE_MODERATION   : u64           = 291_868_975_015_657_472;
