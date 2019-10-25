@@ -16,6 +16,7 @@ use serenity::{
 };
 
 use crate::bot::consts::DISCORD_CHANNEL_ID;
+use crate::bot::consts::DISCORD_CHANNEL_DEBUG_ID;
 //commands use
 use crate::bot::commands::*;
 
