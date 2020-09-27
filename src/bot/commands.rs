@@ -688,10 +688,10 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
     let _ = args.single::<String>().unwrap_or_else(|_| { // we discard the name here because we get the id through message.mentions()
         args_ok = false; "".to_owned()
     });
-    let nb_coq = args.single::<i32>().unwrap_or_else(|_| {
+    let nb_coq = args.single::<u32>().unwrap_or_else(|_| {
         args_ok = false; 0
     });
-    if !args_ok || nb_coq <= 0  {
+    if !args_ok {
         send_with_mention(message, &context.http, "Usage: !give @name nb_coq (> 0)");
         return Ok(())
     } else if nb_coq > 2000 { // limite de 2000 coquillages
@@ -714,7 +714,7 @@ fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResu
         return Ok(())
     }
 
-    if let Err(_) = trade_coq(message.author.id.to_string(), id_s, nb_coq, &conn) {
+    if let Err(_) = trade_coq(message.author.id.to_string(), id_s, nb_coq as i32, &conn) {
         send_message(message, &context.http, "Erreur pendant l'échange de coquillages. L'échange est annulé");
     } else {
         // feedback
