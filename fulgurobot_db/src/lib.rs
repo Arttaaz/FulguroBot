@@ -25,6 +25,14 @@ pub fn connect_db() -> SqliteConnection {
     SqliteConnection::establish(&db_url).expect("Error connecting to database")
 }
 
+#[cfg(test)]
+fn connect_db_test() -> SqliteConnection {
+    dotenv().ok();
+
+    let db_url = env::var("DATABASE_TEST_URL").expect("DATABASE_URL must be set");
+    SqliteConnection::establish(&db_url).expect("Error connecting to database")
+}
+
 //////////////////////////////
 // USER
 //////////////////////////////
@@ -123,9 +131,7 @@ pub fn trade_coq(id_src: String, id_dst: String, nb_coq: i32, conn: &SqliteConne
         } else {
             Err(diesel::result::Error::RollbackTransaction)
         }
-    })?;
-
-    Ok(())
+    })
 }
 
 ///////////////////////////////////
@@ -317,7 +323,7 @@ fn reset_database(conn: &SqliteConnection) {
 
 #[test]
 fn test_get_users_bet_color() {
-    let conn = connect_db();
+    let conn = connect_db_test();
     reset_database(&conn);
 
     create_user(0.to_string(), "Romain Fecher".to_string(), &conn);
