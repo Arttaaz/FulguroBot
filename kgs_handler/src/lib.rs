@@ -25,7 +25,7 @@ impl Client {
             flags: String::from(""),
         };
 
-        let client = Client { user: user };
+        let client = Client { user };
 
         client
     }
@@ -36,9 +36,8 @@ impl Client {
         data.insert("name", &self.user.username);
         data.insert("password", &self.user.password);
         data.insert("locale", "fr_FR");
-
-        let client = reqwest::Client::new();
-        let mut res = client
+            let client = reqwest::blocking::Client::new();
+        let res = client
             .post("localhost::8080/access")
             .json(&data)
             .send()
