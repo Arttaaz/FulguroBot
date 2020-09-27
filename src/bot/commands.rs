@@ -680,7 +680,7 @@ fn nb_refill(context: &mut Context, message: &Message) -> CommandResult {
 }
 
 #[command]
-#[bucket = "basic"]
+#[bucket = "give"]
 // !give user_id nb_coq
 fn give(context: &mut Context, message: &Message, mut args: Args) -> CommandResult {
     // checking args are correct

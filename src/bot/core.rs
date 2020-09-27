@@ -107,6 +107,7 @@ pub fn init_bot() -> Client {
 
     client.with_framework(StandardFramework::new()
                             .bucket("basic", |b| b.delay(2).time_span(10).limit(3))
+                            .bucket("give", |b| b.time_span(10).limit(1))
                             .configure(|c| c.prefix("!")
                                             .allow_dm(false)
                                             .ignore_bots(false)
