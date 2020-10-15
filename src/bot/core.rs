@@ -1,5 +1,4 @@
 use fulgurobot_db::connect_db;
-use serenity::model::id::ChannelId;
 use fulgurobot_db::update_game_state;
 use chrono::prelude::{ DateTime, Utc };
 use crate::bot::consts::DISCORD_EMBED_COLOR;
@@ -11,9 +10,11 @@ use serenity::{
         standard::macros::group,
     },
     model::channel::Message,
+    model::id::ChannelId,
     utils::MessageBuilder,
     prelude::TypeMapKey,
 };
+
 
 use crate::bot::consts::DISCORD_CHANNEL_ID;
 use crate::bot::consts::DISCORD_CHANNEL_DEBUG_ID;
@@ -67,30 +68,23 @@ impl EventHandler for Handler {
     }
 }
 
-group!({
-    name: "general",
-    options: {},
-    commands: [noir, black, blanc, white, fulgurobot, help, commands, coq, shell, nb_recharge, nb_refill, recharge, refill, etat, state, /*give*/]
-});
+#[group]
+#[commands(noir, black, blanc, white, fulgurobot, help, commands, coq, shell, nb_recharge, nb_refill, recharge, refill, etat, state)]
+struct General;
 
-group!({
-    name: "control",
-    options: { allowed_roles: ["Animateur", "Team Codeur", "Modération", "Admin FulguroGo"] },
-    commands: [create_game, debut_paris, annuler, fin_paris, resultat],
-});
+#[group]
+#[allowed_roles("Animateur", "Team Codeur", "Modération", "Admin FulguroGo")]
+#[commands(create_game, debut_paris, annuler, fin_paris, resultat)]
+struct Control;
 
-group!({
-    name: "debug",
-    options: { allowed_roles: ["Team Codeur", "Admin FulguroGo"] },
-    commands: [],
-});
+#[group]
+#[allowed_roles("Team Codeur", "Admin FulguroGo")]
+struct Debug;
 
-group!({
-    name: "hisokah",
-    options: { allowed_roles: ["Admin FulguroGo"] },
-    commands: [boost],
-});
-
+#[group]
+#[allowed_roles("Admin FulguroGo")]
+#[commands(boost)]
+struct Hisokah;
 
 pub fn init_bot() -> Client {
     if let Err(unset) = env::var("DISCORD_TOKEN") {
